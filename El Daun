@@ -10,7 +10,7 @@ local player = game.Players.LocalPlayer
 -- Multi-track URLs
 local tracksURLs = {
     ["BC - 1"] = "https://raw.githubusercontent.com/fyywannafly-sudo/WalkOnly/refs/heads/main/DAUN_CP1.json",
-    ["CP 1 - CP 2"] = "https://raw.githubusercontent.com/fyywannafly-sudo/WalkOnly/refs/heads/main/DAUN_CP2.json", 
+    ["CP 1 - CP 2"] = "https://raw.githubusercontent.com/fyywannafly-sudo/WalkOnly/refs/heads/main/DAUN_CP2.json",
     ["CP 2 - CP 3"] = "https://raw.githubusercontent.com/fyywannafly-sudo/WalkOnly/refs/heads/main/DAUN_CP3.json",
     ["CP 3 - CP 4"] = "https://raw.githubusercontent.com/fyywannafly-sudo/WalkOnly/refs/heads/main/DAUN_CP4.json",
     ["CP 4 - SUMMIT"] = "https://raw.githubusercontent.com/fyywannafly-sudo/WalkOnly/refs/heads/main/SUMMIT_DAUN.json",
@@ -148,6 +148,39 @@ autoBtn.MouseButton1Click:Connect(function()
     end)()
 end)
 
+-- BYPASS variables (integrated)
+local bypassIsActive = true
+local bypassConn
+
+-- Setup bypass handler (ke Character)
+local function setupBypass(char)
+    local humanoid = char:WaitForChild("Humanoid")
+    local hrp = char:WaitForChild("HumanoidRootPart")
+    local lastPos = hrp.Position
+
+    if bypassConn then bypassConn:Disconnect() end
+    bypassConn = RunService.RenderStepped:Connect(function()
+        if not hrp or not hrp.Parent then return end
+
+        if bypassIsActive then
+            local direction = (hrp.Position - lastPos)
+            local dist = direction.Magnitude
+            if dist > 0.01 then
+                local moveVector = direction.Unit * math.clamp(dist * 5, 0, 1)
+                -- gunakan Move agar animasi berjalan
+                humanoid:Move(moveVector, false)
+            else
+                humanoid:Move(Vector3.zero, false)
+            end
+        end
+
+        lastPos = hrp.Position
+    end)
+end
+
+player.CharacterAdded:Connect(setupBypass)
+if player.Character then setupBypass(player.Character) end
+
 -- STOP Button
 local stopBtn = Instance.new("TextButton", Frame)
 stopBtn.Size = UDim2.new(0.9, 0, 0, 40)
@@ -160,6 +193,28 @@ stopBtn.TextScaled = true
 stopBtn.MouseButton1Click:Connect(function()
     running = false
 end)
+
+-- BYPASS Button (di atas STOP)
+local animBtn = Instance.new("TextButton", Frame)
+animBtn.Size = UDim2.new(0.9, 0, 0, 40)
+animBtn.Position = UDim2.new(0.05, 0, 0, 195) -- pas di atas STOP
+animBtn.Text = "ANIMASI: ON"
+animBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50) -- hijau default
+animBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+animBtn.TextScaled = true
+Instance.new("UICorner", animBtn).CornerRadius = UDim.new(0, 8)
+
+animBtn.MouseButton1Click:Connect(function()
+    bypassIsActive = not bypassIsActive
+    if bypassIsActive then
+        animBtn.Text = "ANIMASI: ON"
+        animBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50) -- hijau
+    else
+        animBtn.Text = "ANIMASI: OFF"
+        animBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- merah
+    end
+end)
+
 
 -- Minimize Button (Fyy Logo)
 local closeBtn = Instance.new("TextButton", Frame)
@@ -234,17 +289,21 @@ end
 function playTrack(track)
     if not track or #track < 2 then return end
     local hrp = getHRP()
-    local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-    
-    -- Buang titik terlalu rapet
+    local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+
     local smoothTrack = simplifyTrack(track, 3)
+
+    -- Disable auto rotate biar nggak tabrakan sama arah script
+    if humanoid then
+        humanoid.AutoRotate = false
+    end
 
     for i = 2, #smoothTrack do
         if not running then break end
 
-        local startPos = Vector3.new(smoothTrack[i-1].X, smoothTrack[i-1].Y, smoothTrack[i-1].Z)
-        local targetPos = Vector3.new(smoothTrack[i].X, smoothTrack[i].Y, smoothTrack[i].Z)
-        
+        local startPos = smoothTrack[i-1]
+        local targetPos = smoothTrack[i]
+
         local distance = (targetPos - startPos).Magnitude
         local duration = distance / speed
         local elapsed = 0
@@ -253,20 +312,30 @@ function playTrack(track)
             elapsed += RunService.Heartbeat:Wait()
             local alpha = math.clamp(elapsed / duration, 0, 1)
             local currentPos = startPos:Lerp(targetPos, alpha)
-            
-            -- Biarkan physics natural, cuma teleport ke posisi berikutnya
-            hrp.CFrame = CFrame.new(currentPos)
-            
-            -- Kasih jump power biar bisa lompati obstacle
+
+            -- Hitung arah track (fix biar nggak kebalik)
+            local direction = (targetPos - startPos)
+            if direction.Magnitude < 0.01 then
+                direction = Vector3.new(0,0,1)
+            end
+            local flatDir = Vector3.new(direction.X, 0, direction.Z).Unit
+
+            local targetCFrame = CFrame.lookAt(currentPos, currentPos + flatDir, Vector3.new(0,1,0))
+            local newRotation = hrp.CFrame.Rotation:Lerp(targetCFrame.Rotation, 0.25)
+
+            -- Set posisi dari track + rotasi smooth (rotasi dihitung dari hrp sebelumnya)
+            hrp.CFrame = CFrame.new(currentPos) * newRotation
+
             if humanoid then
                 humanoid.JumpPower = 50
                 humanoid.Jump = true
             end
         end
     end
-    
-    -- Reset jump power
+
+    -- Restore biar bisa dikontrol manual lagi
     if humanoid then
+        humanoid.AutoRotate = true
         humanoid.JumpPower = 50
     end
 end
