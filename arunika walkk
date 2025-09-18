@@ -193,8 +193,7 @@ function playTrackFromPoint(track, trackName, startPointIndex, lastDirection)
     return true -- Track selesai
 end
 
--- FUNCTION RESUMETRACKLOOP
--- FUNCTION RESUMETRACKLOOP
+-- FUNCTION RESUMETRACKLOOP (YANG DIPERBAIKI)
 local function resumeTrackLoop()
     if not resumeData.trackName or not resumeData.trackIndex then
         print("No resume data available")
@@ -252,13 +251,61 @@ local function resumeTrackLoop()
 
         -- Reset supaya mulai lagi dari awal
         resumeData = {
-            trackName = nil,
+            trackName = orderedTrackNames[1],
             trackIndex = 1,
             pointIndex = 1,
             lastFlatDir = Vector3.new(0, 0, 1)
         }
+        
+        -- Lanjutkan loop setelah respawn
+        if running then
+            resumeTrackLoop()  -- Panggil diri sendiri untuk loop terus menerus
+        end
     end
-end -- This end was missing!
+end
+
+-- FUNCTION RUNAUTOSUMMITLOOP (YANG DIPERBAIKI)
+local function runAutoSummitLoop()
+    while running do
+        for idx, name in ipairs(orderedTrackNames) do
+            if not running then break end
+
+            print("Playing track:", name)
+            resumeData.trackName = name
+            resumeData.trackIndex = idx
+            resumeData.pointIndex = 1
+
+            local success, finished = pcall(function()
+                return playTrack(savedTracks[name], name)
+            end)
+            
+            if not success then
+                print("Error playing track '" .. name .. "':", finished)
+                finished = false
+            end
+
+            if not running then break end
+            if not finished then
+                print("Track dihentikan:", name)
+                break
+            end
+
+            task.wait(1)
+        end
+
+        if running then
+            print("Completed all tracks, respawning...")
+            respawnPlayer()
+            player.CharacterAdded:Wait()
+            getHRP()
+            task.wait(5)
+            
+            -- Reset track index untuk loop berikutnya
+            resumeData.trackIndex = 1
+        end
+    end
+    print("Auto summit loop stopped")
+end
 
 -- GUI Setup
 local ScreenGui = Instance.new("ScreenGui")
@@ -468,44 +515,6 @@ autoBtn.MouseButton1Click:Connect(function()
     isPaused = false
     stopResumeBtn.Text = "PAUSE"
     stopResumeBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
-    
-    local function runAutoSummitLoop()
-        while running do
-            for idx, name in ipairs(orderedTrackNames) do
-                if not running then break end
-
-                print("Playing track:", name)
-                resumeData.trackName = name
-                resumeData.trackIndex = idx
-                resumeData.pointIndex = 1
-
-                local success, finished = pcall(function()
-                    return playTrack(savedTracks[name], name)
-                end)
-                if not success then
-                    print("Error playing track '" .. name .. "':", finished)
-                    finished = false
-                end
-
-                if not running then break end
-                if not finished then
-                    print("Track dihentikan:", name)
-                    break
-                end
-
-                task.wait(1)
-            end
-
-            if running then
-                print("Completed all tracks, respawning...")
-                respawnPlayer()
-                player.CharacterAdded:Wait()
-                getHRP()
-                task.wait(5)
-            end
-        end
-        print("Auto summit loop stopped")
-    end
     
     coroutine.wrap(runAutoSummitLoop)()
 end)
