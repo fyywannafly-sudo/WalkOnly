@@ -77,6 +77,9 @@ function playTrack(track, trackName)
         if not running then 
             resumeData.pointIndex = i - 1
             resumeData.lastFlatDir = resumeData.lastFlatDir or Vector3.new(0, 0, 1)
+            
+            -- Restore AutoRotate when stopping
+            if humanoid then humanoid.AutoRotate = true end
             return false
         end
 
@@ -145,6 +148,9 @@ function playTrackFromPoint(track, trackName, startPointIndex, lastDirection)
         if not running then 
             -- Save the current position for resume
             resumeData.pointIndex = i - 1
+            
+            -- Restore AutoRotate when stopping
+            if humanoid then humanoid.AutoRotate = true end
             return false -- Track dihentikan
         end
 
@@ -359,7 +365,7 @@ autoBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
 autoBtn.TextScaled = true
 Instance.new("UICorner", autoBtn).CornerRadius = UDim.new(0, 6)
 
--- BYPASS Button
+-- ANIMATION Button
 local animBtn = Instance.new("TextButton", Frame)
 animBtn.Size = UDim2.new(0.9, 0, 0, 40)
 animBtn.Position = UDim2.new(0.05, 0, 0, 140)
@@ -392,11 +398,22 @@ Instance.new("UICorner", stopAllBtn).CornerRadius = UDim.new(0, 8)
 -- Variabel untuk menandai apakah ini pause atau stop all
 local isPaused = false
 
--- BYPASS variables
+-- ANIMATION variables
 local bypassIsActive = false
 local bypassConn
 
--- Setup bypass handler
+-- Function to restore character control
+local function restoreCharacterControl()
+    local char = player.Character
+    if char then
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.AutoRotate = true
+        end
+    end
+end
+
+-- Setup animation handler
 local function setupBypass(char)
     local humanoid = char:WaitForChild("Humanoid")
     local hrp = char:WaitForChild("HumanoidRootPart")
@@ -406,7 +423,7 @@ local function setupBypass(char)
     bypassConn = RunService.RenderStepped:Connect(function()
         if not hrp or not hrp.Parent then return end
 
-        if bypassIsActive then
+        if bypassIsActive and running then -- Hanya aktif ketika auto summit berjalan
             local direction = (hrp.Position - lastPos)
             local dist = direction.Magnitude
             if dist > 0.01 then
@@ -421,8 +438,16 @@ local function setupBypass(char)
     end)
 end
 
-player.CharacterAdded:Connect(setupBypass)
-if player.Character then setupBypass(player.Character) end
+player.CharacterAdded:Connect(function(char)
+    setupBypass(char)
+    -- Pastikan AutoRotate aktif ketika karakter baru muncul
+    task.wait(1)
+    restoreCharacterControl()
+end)
+if player.Character then 
+    setupBypass(player.Character)
+    restoreCharacterControl()
+end
 
 -- Fungsi untuk STOP ALL
 local function stopAllTracks()
@@ -435,6 +460,9 @@ local function stopAllTracks()
     bypassIsActive = false
     animBtn.Text = "ANIMASI: OFF"
     animBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+
+    -- Restore character control
+    restoreCharacterControl()
 
     -- Reset resume data
     resumeData = {
@@ -466,7 +494,10 @@ stopResumeBtn.MouseButton1Click:Connect(function()
         animBtn.Text = "ANIMASI: OFF"
         animBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 
-        print("Track paused")
+        -- Restore character control saat pause
+        restoreCharacterControl()
+
+        print("Track paused - character can now move freely")
     else
         if isPaused and resumeData.trackName then
             -- === RESUME dari titik terakhir ===
@@ -496,25 +527,38 @@ stopResumeBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- animasi anjn
+-- Animation button
 animBtn.MouseButton1Click:Connect(function()
-    bypassIsActive = not bypassIsActive
-    if bypassIsActive then
-        animBtn.Text = "ANIMASI: ON"
-        animBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+    if running then -- Hanya bisa diubah ketika auto summit berjalan
+        bypassIsActive = not bypassIsActive
+        if bypassIsActive then
+            animBtn.Text = "ANIMASI: ON"
+            animBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+        else
+            animBtn.Text = "ANIMASI: OFF"
+            animBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        end
     else
+        -- Jika auto summit tidak berjalan, matikan animasi
+        bypassIsActive = false
         animBtn.Text = "ANIMASI: OFF"
         animBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        print("Animation can only be toggled when auto summit is running")
     end
 end)
 
--- Modifikasi auto summit
+-- Auto Summit Button
 autoBtn.MouseButton1Click:Connect(function()
     if running then return end
     running = true
     isPaused = false
     stopResumeBtn.Text = "PAUSE"
     stopResumeBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+    
+    -- Aktifkan animasi secara default saat memulai
+    bypassIsActive = true
+    animBtn.Text = "ANIMASI: ON"
+    animBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
     
     coroutine.wrap(runAutoSummitLoop)()
 end)
