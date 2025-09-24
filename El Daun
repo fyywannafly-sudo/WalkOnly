@@ -9,11 +9,11 @@ local player = game.Players.LocalPlayer
 
 -- Multi-track URLs
 local tracksURLs = {
-    ["BC - 1"] = "https://raw.githubusercontent.com/fyywannafly-sudo/WalkOnly/refs/heads/main/DAUN_CP1.json",
-    ["CP 1 - CP 2"] = "https://raw.githubusercontent.com/fyywannafly-sudo/WalkOnly/refs/heads/main/DAUN_CP2.json",
-    ["CP 2 - CP 3"] = "https://raw.githubusercontent.com/fyywannafly-sudo/WalkOnly/refs/heads/main/DAUN_CP3.json",
-    ["CP 3 - CP 4"] = "https://raw.githubusercontent.com/fyywannafly-sudo/WalkOnly/refs/heads/main/DAUN_CP4.json",
-    ["CP 4 - SUMMIT"] = "https://raw.githubusercontent.com/fyywannafly-sudo/WalkOnly/refs/heads/main/SUMMIT_DAUN.json",
+    ["BC - 1"] = "https://raw.githubusercontent.com/fyywannafly-sudo/WalkOnly/refs/heads/main/DAUN1.json",
+    ["CP 1 - CP 2"] = "https://raw.githubusercontent.com/fyywannafly-sudo/WalkOnly/refs/heads/main/DAUN2.json",
+    ["CP 2 - CP 3"] = "https://raw.githubusercontent.com/fyywannafly-sudo/WalkOnly/refs/heads/main/DAUN3.json",
+    ["CP 3 - CP 4"] = "https://raw.githubusercontent.com/fyywannafly-sudo/WalkOnly/refs/heads/main/DAUN4.json",
+    ["CP 4 - SUMMIT"] = "https://raw.githubusercontent.com/fyywannafly-sudo/WalkOnly/refs/heads/main/DAUN5.json",
 }
 
 local savedTracks = {}
@@ -60,13 +60,265 @@ local function respawnPlayer()
     player.Character:BreakJoints()
 end
 
+-- FUNCTION PLAYTRACK
+function playTrack(track, trackName)
+    if not track or #track < 2 then 
+        print("Track tidak valid atau terlalu pendek")
+        return false
+    end
+    
+    local hrp = getHRP()
+    local char = player.Character or player.CharacterAdded:Wait()
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid then humanoid.AutoRotate = false end
+
+    for i = 2, #track do
+        if not running then 
+            resumeData.pointIndex = i - 1
+            resumeData.lastFlatDir = resumeData.lastFlatDir or Vector3.new(0, 0, 1)
+            
+            -- Restore AutoRotate when stopping
+            if humanoid then humanoid.AutoRotate = true end
+            return false
+        end
+
+        local startPos = track[i-1]
+        local targetPos = track[i]
+
+        local distance = (targetPos - startPos).Magnitude
+        local deltaY = targetPos.Y - startPos.Y
+
+        local duration = math.max(distance / speed, 0.05)
+
+        if math.abs(deltaY) > 5 then
+            duration = duration * 0.25
+        elseif math.abs(deltaY) > 2 then
+            duration = duration * 0.5
+        end
+
+        local elapsed = 0
+        while elapsed < duration and running do
+            elapsed += RunService.Heartbeat:Wait()
+
+            local t = math.clamp(elapsed / duration, 0, 1)
+            local alpha
+            if deltaY > 2 then
+                alpha = 1 - (1 - t) ^ 3
+            elseif deltaY < -2 then
+                alpha = t ^ 3
+            else
+                alpha = t
+            end
+
+            local currentPos = startPos:Lerp(targetPos, alpha)
+
+            local direction = Vector3.new(targetPos.X - startPos.X, 0, targetPos.Z - startPos.Z)
+            if direction.Magnitude > 0.01 then
+                resumeData.lastFlatDir = direction.Unit
+            end
+
+            local targetCFrame = CFrame.lookAt(currentPos, currentPos + resumeData.lastFlatDir, Vector3.new(0,1,0))
+            hrp.CFrame = targetCFrame
+        end
+    end
+
+    if humanoid then humanoid.AutoRotate = true end
+    resumeData.pointIndex = 1
+    resumeData.lastFlatDir = Vector3.new(0, 0, 1)
+
+    return true
+end
+
+-- FUNCTION PLAYTRACKFROMPOINT
+function playTrackFromPoint(track, trackName, startPointIndex, lastDirection)
+    if not track or #track < 2 or startPointIndex >= #track then 
+        print("Track tidak valid atau start point tidak valid")
+        return false
+    end
+    
+    local hrp = getHRP()
+    local char = player.Character or player.CharacterAdded:Wait()
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid then humanoid.AutoRotate = false end
+
+    resumeData.lastFlatDir = lastDirection or Vector3.new(0, 0, 1)
+
+    for i = startPointIndex + 1, #track do
+        if not running then 
+            -- Save the current position for resume
+            resumeData.pointIndex = i - 1
+            
+            -- Restore AutoRotate when stopping
+            if humanoid then humanoid.AutoRotate = true end
+            return false -- Track dihentikan
+        end
+
+        local startPos = track[i-1]
+        local targetPos = track[i]
+
+        local distance = (targetPos - startPos).Magnitude
+        local deltaY = targetPos.Y - startPos.Y
+
+        local duration = math.max(distance / speed, 0.05)
+
+        -- bikin vertical jauh lebih cepat
+        if math.abs(deltaY) > 5 then
+            duration = duration * 0.25
+        elseif math.abs(deltaY) > 2 then
+            duration = duration * 0.2
+        end
+
+        local elapsed = 0
+        while elapsed < duration and running do
+            elapsed += RunService.Heartbeat:Wait()
+
+            local t = math.clamp(elapsed / duration, 0, 1)
+            local alpha
+            if deltaY > 2 then
+                alpha = 1 - (1 - t) ^ 3
+            elseif deltaY < -2 then
+                alpha = t ^ 3
+            else
+                alpha = t
+            end
+
+            local currentPos = startPos:Lerp(targetPos, alpha)
+
+            local direction = Vector3.new(targetPos.X - startPos.X, 0, targetPos.Z - startPos.Z)
+            if direction.Magnitude > 0.01 then
+                resumeData.lastFlatDir = direction.Unit
+            end
+
+            local targetCFrame = CFrame.lookAt(currentPos, currentPos + resumeData.lastFlatDir, Vector3.new(0,1,0))
+            hrp.CFrame = targetCFrame
+        end
+    end
+
+    if humanoid then humanoid.AutoRotate = true end
+    return true -- Track selesai
+end
+
+-- FUNCTION RESUMETRACKLOOP (YANG DIPERBAIKI)
+local function resumeTrackLoop()
+    if not resumeData.trackName or not resumeData.trackIndex then
+        print("No resume data available")
+        return
+    end
+    
+    -- Cari index dimulai dari track yang dipause
+    local startIndex = resumeData.trackIndex
+    for i = startIndex, #orderedTrackNames do
+        if not running then break end
+        
+        local name = orderedTrackNames[i]
+        print("Resuming track:", name)
+        resumeData.trackName = name
+        resumeData.trackIndex = i
+        
+        local track = savedTracks[name]
+        if track and #track > 1 then
+            local success, finished
+            if i == startIndex then
+                -- Resume dari titik terhenti
+                success, finished = pcall(function()
+                    return playTrackFromPoint(track, name, resumeData.pointIndex, resumeData.lastFlatDir)
+                end)
+            else
+                -- Mulai dari awal untuk track berikutnya
+                resumeData.pointIndex = 1
+                resumeData.lastFlatDir = Vector3.new(0, 0, 1)
+                success, finished = pcall(function()
+                    return playTrack(track, name)
+                end)
+            end
+            
+            if not success then
+                print("Error resuming track '" .. name .. "':", finished)
+                finished = false
+            end
+            
+            if not running then break end
+            if not finished then
+                print("Resumed track stopped:", name)
+                break
+            end
+        end
+        
+        task.wait(1)
+    end
+    
+    if running then
+        print("Completed all tracks, respawning...")
+        respawnPlayer()
+        player.CharacterAdded:Wait()
+        getHRP()
+        task.wait(5)
+
+        -- Reset supaya mulai lagi dari awal
+        resumeData = {
+            trackName = orderedTrackNames[1],
+            trackIndex = 1,
+            pointIndex = 1,
+            lastFlatDir = Vector3.new(0, 0, 1)
+        }
+        
+        -- Lanjutkan loop setelah respawn
+        if running then
+            resumeTrackLoop()  -- Panggil diri sendiri untuk loop terus menerus
+        end
+    end
+end
+
+-- FUNCTION RUNAUTOSUMMITLOOP (YANG DIPERBAIKI)
+local function runAutoSummitLoop()
+    while running do
+        for idx, name in ipairs(orderedTrackNames) do
+            if not running then break end
+
+            print("Playing track:", name)
+            resumeData.trackName = name
+            resumeData.trackIndex = idx
+            resumeData.pointIndex = 1
+
+            local success, finished = pcall(function()
+                return playTrack(savedTracks[name], name)
+            end)
+            
+            if not success then
+                print("Error playing track '" .. name .. "':", finished)
+                finished = false
+            end
+
+            if not running then break end
+            if not finished then
+                print("Track dihentikan:", name)
+                break
+            end
+
+            task.wait(1)
+        end
+
+        if running then
+            print("Completed all tracks, respawning...")
+            respawnPlayer()
+            player.CharacterAdded:Wait()
+            getHRP()
+            task.wait(5)
+            
+            -- Reset track index untuk loop berikutnya
+            resumeData.trackIndex = 1
+        end
+    end
+    print("Auto summit loop stopped")
+end
+
 -- GUI Setup
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "MT_Daun"
 ScreenGui.Parent = CoreGui
 
 local Frame = Instance.new("Frame", ScreenGui)
-Frame.Size = UDim2.new(0, 300, 0, 240) -- Reduced height since we removed individual track buttons
+Frame.Size = UDim2.new(0, 300, 0, 240)
 Frame.Position = UDim2.new(0.5, -150, 0.2, 0)
 Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 Frame.BackgroundTransparency = 0.3
@@ -112,35 +364,55 @@ autoBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
 autoBtn.TextScaled = true
 Instance.new("UICorner", autoBtn).CornerRadius = UDim.new(0, 6)
 
-autoBtn.MouseButton1Click:Connect(function()
-    if running then return end
-    running = true
-    resumeData.trackName = nil  -- Reset resume data when starting new loop
-    
-    coroutine.wrap(function()
-        while running do
-            for idx, name in ipairs(orderedTrackNames) do
-                if not running then break end
-                print("Playing track:", name)
-                resumeData.trackName = name
-                resumeData.trackIndex = idx
-                resumeData.pointIndex = 1
-                playTrack(savedTracks[name], name)
-            end
-            if running then
-                respawnPlayer()
-                task.wait(5) -- jeda respawn
-            end
-        end
-        running = false
-    end)()
-end)
+-- ANIMATION Button
+local animBtn = Instance.new("TextButton", Frame)
+animBtn.Size = UDim2.new(0.9, 0, 0, 40)
+animBtn.Position = UDim2.new(0.05, 0, 0, 140)
+animBtn.Text = "ANIMASI: OFF"
+animBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+animBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+animBtn.TextScaled = true
+Instance.new("UICorner", animBtn).CornerRadius = UDim.new(0, 8)
 
--- BYPASS variables (integrated)
-local bypassIsActive = false  -- Default OFF
+-- STOP/RESUME Button
+local stopResumeBtn = Instance.new("TextButton", Frame)
+stopResumeBtn.Size = UDim2.new(0.44, 0, 0, 40)
+stopResumeBtn.Position = UDim2.new(0.05, 0, 0, 190)
+stopResumeBtn.Text = "PAUSE"
+stopResumeBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+stopResumeBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+stopResumeBtn.TextScaled = true
+Instance.new("UICorner", stopResumeBtn).CornerRadius = UDim.new(0, 8)
+
+-- STOP ALL Button
+local stopAllBtn = Instance.new("TextButton", Frame)
+stopAllBtn.Size = UDim2.new(0.44, 0, 0, 40)
+stopAllBtn.Position = UDim2.new(0.51, 0, 0, 190)
+stopAllBtn.Text = "STOP ALL"
+stopAllBtn.BackgroundColor3 = Color3.fromRGB(120, 0, 0)
+stopAllBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+stopAllBtn.TextScaled = true
+Instance.new("UICorner", stopAllBtn).CornerRadius = UDim.new(0, 8)
+
+-- Variabel untuk menandai apakah ini pause atau stop all
+local isPaused = false
+
+-- ANIMATION variables
+local bypassIsActive = false
 local bypassConn
 
--- Setup bypass handler (ke Character)
+-- Function to restore character control
+local function restoreCharacterControl()
+    local char = player.Character
+    if char then
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.AutoRotate = true
+        end
+    end
+end
+
+-- Setup animation handler
 local function setupBypass(char)
     local humanoid = char:WaitForChild("Humanoid")
     local hrp = char:WaitForChild("HumanoidRootPart")
@@ -150,12 +422,11 @@ local function setupBypass(char)
     bypassConn = RunService.RenderStepped:Connect(function()
         if not hrp or not hrp.Parent then return end
 
-        if bypassIsActive then
+        if bypassIsActive and running then -- Hanya aktif ketika auto summit berjalan
             local direction = (hrp.Position - lastPos)
             local dist = direction.Magnitude
             if dist > 0.01 then
                 local moveVector = direction.Unit * math.clamp(dist * 5, 0, 1)
-                -- gunakan Move agar animasi berjalan
                 humanoid:Move(moveVector, false)
             else
                 humanoid:Move(Vector3.zero, false)
@@ -166,100 +437,132 @@ local function setupBypass(char)
     end)
 end
 
-player.CharacterAdded:Connect(setupBypass)
-if player.Character then setupBypass(player.Character) end
+player.CharacterAdded:Connect(function(char)
+    setupBypass(char)
+    -- Pastikan AutoRotate aktif ketika karakter baru muncul
+    task.wait(1)
+    restoreCharacterControl()
+end)
+if player.Character then 
+    setupBypass(player.Character)
+    restoreCharacterControl()
+end
 
--- BYPASS Button
-local animBtn = Instance.new("TextButton", Frame)
-animBtn.Size = UDim2.new(0.9, 0, 0, 40)
-animBtn.Position = UDim2.new(0.05, 0, 0, 140)
-animBtn.Text = "ANIMASI: OFF"  -- Default OFF
-animBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- merah default
-animBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-animBtn.TextScaled = true
-Instance.new("UICorner", animBtn).CornerRadius = UDim.new(0, 8)
+-- Fungsi untuk STOP ALL
+local function stopAllTracks()
+    running = false
+    isPaused = false
+    stopResumeBtn.Text = "PAUSE"
+    stopResumeBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
 
-animBtn.MouseButton1Click:Connect(function()
-    bypassIsActive = not bypassIsActive
-    if bypassIsActive then
-        animBtn.Text = "ANIMASI: ON"
-        animBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50) -- hijau
-    else
-        animBtn.Text = "ANIMASI: OFF"
-        animBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- merah
-    end
+    -- Matikan animasi saat stop all
+    bypassIsActive = false
+    animBtn.Text = "ANIMASI: OFF"
+    animBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+
+    -- Restore character control
+    restoreCharacterControl()
+
+    -- Reset resume data
+    resumeData = {
+        trackName = nil,
+        trackIndex = 1,
+        pointIndex = 1,
+        lastFlatDir = Vector3.new(0, 0, 1)
+    }
+
+    print("All tracks stopped completely")
+end
+
+-- Tombol STOP ALL
+stopAllBtn.MouseButton1Click:Connect(function()
+    stopAllTracks()
 end)
 
--- STOP/RESUME Button
-local stopResumeBtn = Instance.new("TextButton", Frame)
-stopResumeBtn.Size = UDim2.new(0.9, 0, 0, 40)
-stopResumeBtn.Position = UDim2.new(0.05, 0, 0, 190)
-stopResumeBtn.Text = "STOP"
-stopResumeBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
-stopResumeBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
-stopResumeBtn.TextScaled = true
-Instance.new("UICorner", stopResumeBtn).CornerRadius = UDim.new(0, 8)
-
+-- Tombol PAUSE/RESUME
 stopResumeBtn.MouseButton1Click:Connect(function()
     if running then
-        -- Stop the current track
+        -- === PAUSE ===
         running = false
+        isPaused = true
         stopResumeBtn.Text = "RESUME"
         stopResumeBtn.BackgroundColor3 = Color3.fromRGB(0, 80, 0)
-        
-        -- Matikan animasi saat stop
+
+        -- Matikan animasi saat pause
         bypassIsActive = false
         animBtn.Text = "ANIMASI: OFF"
         animBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+
+        -- Restore character control saat pause
+        restoreCharacterControl()
+
+        print("Track paused - character can now move freely")
     else
-        -- Resume from where we left off
-        if resumeData.trackName then
+        if isPaused and resumeData.trackName then
+            -- === RESUME dari titik terakhir ===
             running = true
-            stopResumeBtn.Text = "STOP"
+            isPaused = false
+            stopResumeBtn.Text = "PAUSE"
             stopResumeBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
-            
-            -- NYALAIN OTOMATIS ANIMASI SAAT RESUME
+
+            -- Hidupin animasi otomatis saat resume
             bypassIsActive = true
             animBtn.Text = "ANIMASI: ON"
             animBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
-            
+
             coroutine.wrap(function()
-                -- Continue from the current track
-                for i = resumeData.trackIndex, #orderedTrackNames do
-                    if not running then break end
-                    
-                    local name = orderedTrackNames[i]
-                    print("Resuming track:", name)
-                    
-                    -- If it's the same track we were on, resume from the saved point
-                    if i == resumeData.trackIndex then
-                        resumeData.trackName = name
-                        playTrackFromPoint(savedTracks[name], name, resumeData.pointIndex, resumeData.lastFlatDir)
-                    else
-                        -- Otherwise start from the beginning of the next track
-                        resumeData.trackName = name
-                        resumeData.trackIndex = i
-                        resumeData.pointIndex = 1
-                        playTrack(savedTracks[name], name)
-                    end
-                end
-                
-                -- If we finished all tracks and loop is still enabled, restart
+                resumeTrackLoop()
                 if running then
-                    respawnPlayer()
-                    task.wait(5)
-                    resumeData.trackName = nil
-                    if running then
-                        -- Restart the auto summit loop
-                        coroutine.wrap(autoBtn.MouseButton1Click)()
-                    end
+                    print("Resume completed all tracks")
+                else
+                    print("Resume stopped early")
                 end
             end)()
+
+            print("Resuming from track:", resumeData.trackName, "at point", resumeData.pointIndex)
+        else
+            print("No track to resume")
         end
     end
 end)
 
--- Minimize Button (Fyy Logo)
+-- Animation button
+animBtn.MouseButton1Click:Connect(function()
+    if running then -- Hanya bisa diubah ketika auto summit berjalan
+        bypassIsActive = not bypassIsActive
+        if bypassIsActive then
+            animBtn.Text = "ANIMASI: ON"
+            animBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+        else
+            animBtn.Text = "ANIMASI: OFF"
+            animBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        end
+    else
+        -- Jika auto summit tidak berjalan, matikan animasi
+        bypassIsActive = false
+        animBtn.Text = "ANIMASI: OFF"
+        animBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        print("Animation can only be toggled when auto summit is running")
+    end
+end)
+
+-- Auto Summit Button
+autoBtn.MouseButton1Click:Connect(function()
+    if running then return end
+    running = true
+    isPaused = false
+    stopResumeBtn.Text = "PAUSE"
+    stopResumeBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+    
+    -- Aktifkan animasi secara default saat memulai
+    bypassIsActive = true
+    animBtn.Text = "ANIMASI: ON"
+    animBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+    
+    coroutine.wrap(runAutoSummitLoop)()
+end)
+
+-- Minimize Button
 local closeBtn = Instance.new("TextButton", Frame)
 closeBtn.Size = UDim2.new(0, 30, 0, 30)
 closeBtn.Position = UDim2.new(1, -35, 0, 0)
@@ -314,138 +617,3 @@ local function setupDrag(target)
     end)
 end
 setupDrag(Frame)
-
--- FUNCTION PLAYTRACK YANG SUDAH DIPERBAIKI --
-function playTrack(track, trackName)
-    if not track or #track < 2 then 
-        print("Track tidak valid atau terlalu pendek")
-        return 
-    end
-    
-    local hrp = getHRP()
-    local char = player.Character or player.CharacterAdded:Wait()
-    local humanoid = char:FindFirstChildOfClass("Humanoid")
-    if humanoid then humanoid.AutoRotate = false end
-
-    for i = 2, #track do
-        if not running then 
-            -- Save the current position for resume
-            resumeData.pointIndex = i - 1
-            resumeData.lastFlatDir = resumeData.lastFlatDir or Vector3.new(0, 0, 1)
-            break 
-        end
-
-        local startPos = track[i-1]
-        local targetPos = track[i]
-
-        local distance = (targetPos - startPos).Magnitude
-        local deltaY = targetPos.Y - startPos.Y
-
-        local duration = distance / speed
-
-        -- bikin vertical jauh lebih cepat
-        if math.abs(deltaY) > 5 then
-            duration = duration * 0.25   -- sebelumnya 0.35
-        elseif math.abs(deltaY) > 2 then
-            duration = duration * 0.5    -- sebelumnya 0.6
-        end
-
-        local elapsed = 0
-        while elapsed < duration and running do
-            elapsed += RunService.Heartbeat:Wait()
-
-            local t = math.clamp(elapsed / duration, 0, 1)
-            local alpha
-            if deltaY > 2 then
-                -- naik: cepat banget di awal, lambat di ujung
-                alpha = 1 - (1 - t) ^ 3
-            elseif deltaY < -2 then
-                -- turun: lambat awal, ngebut di bawah
-                alpha = t ^ 3
-            else
-                alpha = t
-            end
-
-            local currentPos = startPos:Lerp(targetPos, alpha)
-
-            -- arah tetap kunci ke XZ biar nggak muter aneh
-            local direction = Vector3.new(targetPos.X - startPos.X, 0, targetPos.Z - startPos.Z)
-            if direction.Magnitude > 0.01 then
-                resumeData.lastFlatDir = direction.Unit
-            end
-
-            local targetCFrame = CFrame.lookAt(currentPos, currentPos + resumeData.lastFlatDir, Vector3.new(0,1,0))
-            hrp.CFrame = targetCFrame
-        end
-    end
-
-    if humanoid then humanoid.AutoRotate = true end
-end
-
--- Function to play track from a specific point
-function playTrackFromPoint(track, trackName, startPointIndex, lastDirection)
-    if not track or #track < 2 then 
-        print("Track tidak valid atau terlalu pendek")
-        return 
-    end
-    
-    local hrp = getHRP()
-    local char = player.Character or player.CharacterAdded:Wait()
-    local humanoid = char:FindFirstChildOfClass("Humanoid")
-    if humanoid then humanoid.AutoRotate = false end
-
-    resumeData.lastFlatDir = lastDirection or Vector3.new(0, 0, 1)
-
-    for i = startPointIndex + 1, #track do
-        if not running then 
-            -- Save the current position for resume
-            resumeData.pointIndex = i - 1
-            break 
-        end
-
-        local startPos = track[i-1]
-        local targetPos = track[i]
-
-        local distance = (targetPos - startPos).Magnitude
-        local deltaY = targetPos.Y - startPos.Y
-
-        local duration = distance / speed
-
-        -- bikin vertical jauh lebih cepat
-        if math.abs(deltaY) > 5 then
-            duration = duration * 0.15   -- sebelumnya 0.35
-        elseif math.abs(deltaY) > 2 then
-            duration = duration * 0.2    -- sebelumnya 0.6
-        end
-
-        local elapsed = 0
-        while elapsed < duration and running do
-            elapsed += RunService.Heartbeat:Wait()
-
-            local t = math.clamp(elapsed / duration, 0, 1)
-            local alpha
-            if deltaY > 2 then
-                -- naik: cepat banget di awal, lambat di ujung
-                alpha = 1 - (1 - t) ^ 3
-            elseif deltaY < -2 then
-                -- turun: lambat awal, ngebut di bawah
-                alpha = t ^ 3
-            else
-                alpha = t
-            end
-
-            local currentPos = startPos:Lerp(targetPos, alpha)
-
-            -- arah tetap kunci ke XZ biar nggak muter aneh
-            local direction = Vector3.new(targetPos.X - startPos.X, 0, targetPos.Z - startPos.Z)
-            if direction.Magnitude > 0.01 then
-                resumeData.lastFlatDir = direction.Unit
-            end
-
-            local targetCFrame = CFrame.lookAt(currentPos, currentPos + resumeData.lastFlatDir, Vector3.new(0,1,0))
-            hrp.CFrame = targetCFrame
-        end
-    end
-
-    if humanoid then humanoid.AutoRotate = true end
-end
