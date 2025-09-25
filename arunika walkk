@@ -150,10 +150,18 @@ if math.abs(deltaY) > 5 then
 end
 
 -- Lock orientasi ke arah track
-local targetCFrame = CFrame.new(currentPos, currentPos + lookDir)
+-- Lock orientasi & posisi biar lengket di track
+local lockedCFrame = CFrame.new(
+    Vector3.new(currentPos.X, currentPos.Y, currentPos.Z),
+    Vector3.new(currentPos.X, currentPos.Y, currentPos.Z) + lookDir
+)
 
--- Smooth biar ga muter balik tiba-tiba
-hrp.CFrame = hrp.CFrame:Lerp(targetCFrame, 0.25)
+-- Kalau mau smooth gerakan
+hrp.CFrame = lockedCFrame
+
+-- Kalau mau bener2 nempel tanpa melayang jatoh (hard lock):
+-- hrp.CFrame = lockedCFrame
+
 
         end
     end
@@ -257,10 +265,18 @@ if math.abs(deltaY) > 5 then
 end
 
 -- Lock orientasi ke arah track
-local targetCFrame = CFrame.new(currentPos, currentPos + lookDir)
+-- Lock orientasi & posisi biar lengket di track
+local lockedCFrame = CFrame.new(
+    Vector3.new(currentPos.X, currentPos.Y, currentPos.Z),
+    Vector3.new(currentPos.X, currentPos.Y, currentPos.Z) + lookDir
+)
 
--- Smooth biar ga muter balik tiba-tiba
-hrp.CFrame = hrp.CFrame:Lerp(targetCFrame, 0.25)
+-- Kalau mau smooth gerakan
+hrp.CFrame = lockedCFrame
+
+-- Kalau mau bener2 nempel tanpa melayang jatoh (hard lock):
+-- hrp.CFrame = lockedCFrame
+
         end
     end
 
@@ -369,7 +385,7 @@ local function runAutoSummitLoop()
             respawnPlayer()
             player.CharacterAdded:Wait()
             getHRP()
-            task.wait(3)
+            task.wait(2)
             
             -- Reset track index untuk loop berikutnya
             resumeData.trackIndex = 1
