@@ -150,19 +150,17 @@ if math.abs(deltaY) > 5 then
 end
 
 -- Lock orientasi ke arah track
--- Lock orientasi & posisi biar lengket di track
-local lockedCFrame = CFrame.new(
-    Vector3.new(currentPos.X, currentPos.Y, currentPos.Z),
-    Vector3.new(currentPos.X, currentPos.Y, currentPos.Z) + lookDir
-)
+-- Lock tapi tetap smooth
+local blend = 0.20 -- makin besar makin kaku, makin kecil makin smooth
 
--- Kalau mau smooth gerakan
-hrp.CFrame = lockedCFrame
+-- Posisi target
+local targetCFrame = CFrame.new(currentPos, currentPos + lookDir)
 
--- Kalau mau bener2 nempel tanpa melayang jatoh (hard lock):
--- hrp.CFrame = lockedCFrame
+-- Lerp biar smooth
+local lerped = hrp.CFrame:Lerp(targetCFrame, blend)
 
-
+-- Hard-lock posisi (supaya ga jatoh / offset)
+hrp.CFrame = CFrame.new(currentPos) * (lerped - lerped.Position)
         end
     end
 
@@ -265,18 +263,17 @@ if math.abs(deltaY) > 5 then
 end
 
 -- Lock orientasi ke arah track
--- Lock orientasi & posisi biar lengket di track
-local lockedCFrame = CFrame.new(
-    Vector3.new(currentPos.X, currentPos.Y, currentPos.Z),
-    Vector3.new(currentPos.X, currentPos.Y, currentPos.Z) + lookDir
-)
+-- Lock tapi tetap smooth
+local blend = 0.20 -- makin besar makin kaku, makin kecil makin smooth
 
--- Kalau mau smooth gerakan
-hrp.CFrame = lockedCFrame
+-- Posisi target
+local targetCFrame = CFrame.new(currentPos, currentPos + lookDir)
 
--- Kalau mau bener2 nempel tanpa melayang jatoh (hard lock):
--- hrp.CFrame = lockedCFrame
+-- Lerp biar smooth
+local lerped = hrp.CFrame:Lerp(targetCFrame, blend)
 
+-- Hard-lock posisi (supaya ga jatoh / offset)
+hrp.CFrame = CFrame.new(currentPos) * (lerped - lerped.Position)
         end
     end
 
@@ -336,7 +333,7 @@ local function resumeTrackLoop()
         respawnPlayer()
         player.CharacterAdded:Wait()
         getHRP()
-        task.wait(3)
+        task.wait(1)
 
         -- Reset supaya mulai lagi dari awal
         resumeData = {
@@ -385,7 +382,7 @@ local function runAutoSummitLoop()
             respawnPlayer()
             player.CharacterAdded:Wait()
             getHRP()
-            task.wait(2)
+            task.wait(1)
             
             -- Reset track index untuk loop berikutnya
             resumeData.trackIndex = 1
