@@ -98,28 +98,69 @@ function playTrack(track, trackName)
         end
 
         local elapsed = 0
-        while elapsed < duration and running do
-            elapsed += RunService.Heartbeat:Wait()
+while elapsed < duration and running do
+    elapsed += RunService.Heartbeat:Wait()
 
-            local t = math.clamp(elapsed / duration, 0, 1)
-            local alpha
-            if deltaY > 2 then
-                alpha = 1 - (1 - t) ^ 3
-            elseif deltaY < -2 then
-                alpha = t ^ 3
-            else
-                alpha = t
-            end
+    local t = math.clamp(elapsed / duration, 0, 1)
+    local alpha
+    if deltaY > 2 then
+        alpha = 1 - (1 - t) ^ 3
+    elseif deltaY < -2 then
+        alpha = t ^ 3
+    else
+        alpha = t
+    end
 
-            local currentPos = startPos:Lerp(targetPos, alpha)
+    local currentPos
+    if math.abs(deltaY) > 5 then
+        -- Tangga curam, pisahkan horizontal & vertical biar ga ngelayang
+        local t_h = math.clamp(elapsed / (duration * 0.7), 0, 1)
+        local t_v = math.clamp(elapsed / (duration * 0.3), 0, 1)
 
-            local direction = Vector3.new(targetPos.X - startPos.X, 0, targetPos.Z - startPos.Z)
-            if direction.Magnitude > 0.01 then
-                resumeData.lastFlatDir = direction.Unit
-            end
+        local horizPos = Vector3.new(
+            startPos.X + (targetPos.X - startPos.X) * t_h,
+            startPos.Y,
+            startPos.Z + (targetPos.Z - startPos.Z) * t_h
+        )
+        local vertPos = Vector3.new(
+            targetPos.X,
+            startPos.Y + (targetPos.Y - startPos.Y) * t_v,
+            targetPos.Z
+        )
 
-            local targetCFrame = CFrame.lookAt(currentPos, currentPos + resumeData.lastFlatDir, Vector3.new(0,1,0))
-            hrp.CFrame = targetCFrame
+        currentPos = Vector3.new(horizPos.X, vertPos.Y, horizPos.Z)
+    else
+        currentPos = startPos:Lerp(targetPos, alpha)
+    end
+
+-- Hitung arah horizontal
+local direction = Vector3.new(targetPos.X - startPos.X, 0, targetPos.Z - startPos.Z)
+
+-- Kalau ada arah valid, update lastFlatDir
+if direction.Magnitude > 0.1 then
+    resumeData.lastFlatDir = direction.Unit
+end
+
+-- Kalau lagi naik/curam, paksa tetap ngikut arah horizontal track
+local lookDir = resumeData.lastFlatDir
+if math.abs(deltaY) > 5 then
+    if direction.Magnitude > 0.1 then
+        lookDir = direction.Unit
+    end
+end
+
+-- Lock orientasi ke arah track
+-- Lock tapi tetap smooth
+local blend = 0.20 -- makin besar makin kaku, makin kecil makin smooth
+
+-- Posisi target
+local targetCFrame = CFrame.new(currentPos, currentPos + lookDir)
+
+-- Lerp biar smooth
+local lerped = hrp.CFrame:Lerp(targetCFrame, blend)
+
+-- Hard-lock posisi (supaya ga jatoh / offset)
+hrp.CFrame = CFrame.new(currentPos) * (lerped - lerped.Position)
         end
     end
 
@@ -170,28 +211,69 @@ function playTrackFromPoint(track, trackName, startPointIndex, lastDirection)
         end
 
         local elapsed = 0
-        while elapsed < duration and running do
-            elapsed += RunService.Heartbeat:Wait()
+while elapsed < duration and running do
+    elapsed += RunService.Heartbeat:Wait()
 
-            local t = math.clamp(elapsed / duration, 0, 1)
-            local alpha
-            if deltaY > 2 then
-                alpha = 1 - (1 - t) ^ 3
-            elseif deltaY < -2 then
-                alpha = t ^ 3
-            else
-                alpha = t
-            end
+    local t = math.clamp(elapsed / duration, 0, 1)
+    local alpha
+    if deltaY > 2 then
+        alpha = 1 - (1 - t) ^ 3
+    elseif deltaY < -2 then
+        alpha = t ^ 3
+    else
+        alpha = t
+    end
 
-            local currentPos = startPos:Lerp(targetPos, alpha)
+    local currentPos
+    if math.abs(deltaY) > 5 then
+        -- Tangga curam, pisahkan horizontal & vertical biar ga ngelayang
+        local t_h = math.clamp(elapsed / (duration * 0.7), 0, 1)
+        local t_v = math.clamp(elapsed / (duration * 0.3), 0, 1)
 
-            local direction = Vector3.new(targetPos.X - startPos.X, 0, targetPos.Z - startPos.Z)
-            if direction.Magnitude > 0.01 then
-                resumeData.lastFlatDir = direction.Unit
-            end
+        local horizPos = Vector3.new(
+            startPos.X + (targetPos.X - startPos.X) * t_h,
+            startPos.Y,
+            startPos.Z + (targetPos.Z - startPos.Z) * t_h
+        )
+        local vertPos = Vector3.new(
+            targetPos.X,
+            startPos.Y + (targetPos.Y - startPos.Y) * t_v,
+            targetPos.Z
+        )
 
-            local targetCFrame = CFrame.lookAt(currentPos, currentPos + resumeData.lastFlatDir, Vector3.new(0,1,0))
-            hrp.CFrame = targetCFrame
+        currentPos = Vector3.new(horizPos.X, vertPos.Y, horizPos.Z)
+    else
+        currentPos = startPos:Lerp(targetPos, alpha)
+    end
+
+-- Hitung arah horizontal
+local direction = Vector3.new(targetPos.X - startPos.X, 0, targetPos.Z - startPos.Z)
+
+-- Kalau ada arah valid, update lastFlatDir
+if direction.Magnitude > 0.1 then
+    resumeData.lastFlatDir = direction.Unit
+end
+
+-- Kalau lagi naik/curam, paksa tetap ngikut arah horizontal track
+local lookDir = resumeData.lastFlatDir
+if math.abs(deltaY) > 5 then
+    if direction.Magnitude > 0.1 then
+        lookDir = direction.Unit
+    end
+end
+
+-- Lock orientasi ke arah track
+-- Lock tapi tetap smooth
+local blend = 0.20 -- makin besar makin kaku, makin kecil makin smooth
+
+-- Posisi target
+local targetCFrame = CFrame.new(currentPos, currentPos + lookDir)
+
+-- Lerp biar smooth
+local lerped = hrp.CFrame:Lerp(targetCFrame, blend)
+
+-- Hard-lock posisi (supaya ga jatoh / offset)
+hrp.CFrame = CFrame.new(currentPos) * (lerped - lerped.Position)
         end
     end
 
@@ -244,8 +326,6 @@ local function resumeTrackLoop()
                 break
             end
         end
-        
-        task.wait(1)
     end
     
     if running then
@@ -253,7 +333,7 @@ local function resumeTrackLoop()
         respawnPlayer()
         player.CharacterAdded:Wait()
         getHRP()
-        task.wait(5)
+        task.wait(1)
 
         -- Reset supaya mulai lagi dari awal
         resumeData = {
@@ -295,8 +375,6 @@ local function runAutoSummitLoop()
                 print("Track dihentikan:", name)
                 break
             end
-
-            task.wait(1)
         end
 
         if running then
@@ -304,7 +382,7 @@ local function runAutoSummitLoop()
             respawnPlayer()
             player.CharacterAdded:Wait()
             getHRP()
-            task.wait(5)
+            task.wait(1)
             
             -- Reset track index untuk loop berikutnya
             resumeData.trackIndex = 1
