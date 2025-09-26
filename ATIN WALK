@@ -175,11 +175,17 @@ if math.abs(deltaY) > 5 then
 end
 
 -- Lock orientasi ke arah track
+-- Lock tapi tetap smooth
+local blend = 0.20 -- makin besar makin kaku, makin kecil makin smooth
+
+-- Posisi target
 local targetCFrame = CFrame.new(currentPos, currentPos + lookDir)
 
--- Smooth biar ga muter balik tiba-tiba
-hrp.CFrame = hrp.CFrame:Lerp(targetCFrame, 0.25)
+-- Lerp biar smooth
+local lerped = hrp.CFrame:Lerp(targetCFrame, blend)
 
+-- Hard-lock posisi (supaya ga jatoh / offset)
+hrp.CFrame = CFrame.new(currentPos) * (lerped - lerped.Position)
         end
     end
 
@@ -282,10 +288,17 @@ if math.abs(deltaY) > 5 then
 end
 
 -- Lock orientasi ke arah track
+-- Lock tapi tetap smooth
+local blend = 0.20 -- makin besar makin kaku, makin kecil makin smooth
+
+-- Posisi target
 local targetCFrame = CFrame.new(currentPos, currentPos + lookDir)
 
--- Smooth biar ga muter balik tiba-tiba
-hrp.CFrame = hrp.CFrame:Lerp(targetCFrame, 0.25)
+-- Lerp biar smooth
+local lerped = hrp.CFrame:Lerp(targetCFrame, blend)
+
+-- Hard-lock posisi (supaya ga jatoh / offset)
+hrp.CFrame = CFrame.new(currentPos) * (lerped - lerped.Position)
         end
     end
 
@@ -294,13 +307,13 @@ hrp.CFrame = hrp.CFrame:Lerp(targetCFrame, 0.25)
 end
 
 -- FUNCTION RESUMETRACKLOOP (YANG DIPERBAIKI)
+-- FUNCTION RESUMETRACKLOOP (1x tanpa respawn/loop)
 local function resumeTrackLoop()
     if not resumeData.trackName or not resumeData.trackIndex then
         print("No resume data available")
         return
     end
     
-    -- Cari index dimulai dari track yang dipause
     local startIndex = resumeData.trackIndex
     for i = startIndex, #orderedTrackNames do
         if not running then break end
@@ -314,12 +327,10 @@ local function resumeTrackLoop()
         if track and #track > 1 then
             local success, finished
             if i == startIndex then
-                -- Resume dari titik terhenti
                 success, finished = pcall(function()
                     return playTrackFromPoint(track, name, resumeData.pointIndex, resumeData.lastFlatDir)
                 end)
             else
-                -- Mulai dari awal untuk track berikutnya
                 resumeData.pointIndex = 1
                 resumeData.lastFlatDir = Vector3.new(0, 0, 1)
                 success, finished = pcall(function()
@@ -339,69 +350,57 @@ local function resumeTrackLoop()
             end
         end
     end
-    
-    if running then
-        print("Completed all tracks, respawning...")
-        respawnPlayer()
-        player.CharacterAdded:Wait()
-        getHRP()
-        task.wait(3)
 
-        -- Reset supaya mulai lagi dari awal
-        resumeData = {
-            trackName = orderedTrackNames[1],
-            trackIndex = 1,
-            pointIndex = 1,
-            lastFlatDir = Vector3.new(0, 0, 1)
-        }
-        
-        -- Lanjutkan loop setelah respawn
-        if running then
-            resumeTrackLoop()  -- Panggil diri sendiri untuk loop terus menerus
-        end
-    end
+    -- Selesai semua track → stop + animasi off
+    running = false
+    isPaused = false
+    bypassIsActive = false
+    animBtn.Text = "ANIMASI: OFF"
+    animBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    stopResumeBtn.Text = "PAUSE"
+    stopResumeBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+
+    print("✅ Semua track selesai sekali (no respawn / no loop) → Animasi OFF")
 end
 
--- FUNCTION RUNAUTOSUMMITLOOP (YANG DIPERBAIKI)
+-- FUNCTION RUNAUTOSUMMITLOOP (1x tanpa respawn/loop)
 local function runAutoSummitLoop()
-    while running do
-        for idx, name in ipairs(orderedTrackNames) do
-            if not running then break end
+    for idx, name in ipairs(orderedTrackNames) do
+        if not running then break end
 
-            print("Playing track:", name)
-            resumeData.trackName = name
-            resumeData.trackIndex = idx
-            resumeData.pointIndex = 1
+        print("Playing track:", name)
+        resumeData.trackName = name
+        resumeData.trackIndex = idx
+        resumeData.pointIndex = 1
 
-            local success, finished = pcall(function()
-                return playTrack(savedTracks[name], name)
-            end)
-            
-            if not success then
-                print("Error playing track '" .. name .. "':", finished)
-                finished = false
-            end
-
-            if not running then break end
-            if not finished then
-                print("Track dihentikan:", name)
-                break
-            end
+        local success, finished = pcall(function()
+            return playTrack(savedTracks[name], name)
+        end)
+        
+        if not success then
+            print("Error playing track '" .. name .. "':", finished)
+            finished = false
         end
 
-        if running then
-            print("Completed all tracks, respawning...")
-            respawnPlayer()
-            player.CharacterAdded:Wait()
-            getHRP()
-            task.wait(3)
-            
-            -- Reset track index untuk loop berikutnya
-            resumeData.trackIndex = 1
+        if not running then break end
+        if not finished then
+            print("Track dihentikan:", name)
+            break
         end
     end
-    print("Auto summit loop stopped")
+
+    -- Selesai semua track → stop + animasi off
+    running = false
+    isPaused = false
+    bypassIsActive = false
+    animBtn.Text = "ANIMASI: OFF"
+    animBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    stopResumeBtn.Text = "PAUSE"
+    stopResumeBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+
+    print("✅ Semua track selesai sekali (no respawn / no loop) → Animasi OFF")
 end
+
 
 -- GUI Setup
 local ScreenGui = Instance.new("ScreenGui")
@@ -449,7 +448,7 @@ end)
 local autoBtn = Instance.new("TextButton", Frame)
 autoBtn.Size = UDim2.new(0.9, 0, 0, 40)
 autoBtn.Position = UDim2.new(0.05, 0, 0, 90)
-autoBtn.Text = "AUTO SUMMIT (Loop)"
+autoBtn.Text = "AUTO SUMMIT"
 autoBtn.BackgroundColor3 = Color3.fromRGB(0, 60, 100)
 autoBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
 autoBtn.TextScaled = true
