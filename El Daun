@@ -59,7 +59,6 @@ end
 local function respawnPlayer()
     player.Character:BreakJoints()
 end
-
 -- FUNCTION PLAYTRACK
 function playTrack(track, trackName)
     if not track or #track < 2 then 
@@ -102,35 +101,31 @@ while elapsed < duration and running do
 
     local t = math.clamp(elapsed / duration, 0, 1)
     local alpha
-    if deltaY > 2 then
-        alpha = 1 - (1 - t) ^ 3
-    elseif deltaY < -2 then
-        alpha = t ^ 3
+if deltaY > 2 then
+    alpha = t ^ 2 -- Naik → awal lambat, akhir cepat
+elseif deltaY < -2 then
+    alpha = 1 - (1 - t) ^ 2 -- Turun → awal cepat, akhir lambat
+else
+    alpha = t -- Rata → linear
+end
+
+
+local currentPos
+if math.abs(deltaY) > 5 then
+    -- Smooth pakai easing curve biar natural (loncat/jatuh)
+    local easedT
+    if deltaY > 0 then
+        -- Naik → awal lambat, akhir cepat
+        easedT = t ^ 2
     else
-        alpha = t
+        -- Turun → awal cepat, akhir melambat
+        easedT = 1 - (1 - t) ^ 2
     end
+    currentPos = startPos:Lerp(targetPos, easedT)
+else
+    currentPos = startPos:Lerp(targetPos, alpha)
+end
 
-    local currentPos
-    if math.abs(deltaY) > 5 then
-        -- Tangga curam, pisahkan horizontal & vertical biar ga ngelayang
-        local t_h = math.clamp(elapsed / (duration * 0.7), 0, 1)
-        local t_v = math.clamp(elapsed / (duration * 0.3), 0, 1)
-
-        local horizPos = Vector3.new(
-            startPos.X + (targetPos.X - startPos.X) * t_h,
-            startPos.Y,
-            startPos.Z + (targetPos.Z - startPos.Z) * t_h
-        )
-        local vertPos = Vector3.new(
-            targetPos.X,
-            startPos.Y + (targetPos.Y - startPos.Y) * t_v,
-            targetPos.Z
-        )
-
-        currentPos = Vector3.new(horizPos.X, vertPos.Y, horizPos.Z)
-    else
-        currentPos = startPos:Lerp(targetPos, alpha)
-    end
 
 -- Hitung arah horizontal
 local direction = Vector3.new(targetPos.X - startPos.X, 0, targetPos.Z - startPos.Z)
@@ -150,7 +145,7 @@ end
 
 -- Lock orientasi ke arah track
 -- Lock tapi tetap smooth
-local blend = 0.20 -- makin besar makin kaku, makin kecil makin smooth
+local blend = 0.05 -- makin besar makin kaku, makin kecil makin smooth
 
 -- Posisi target
 local targetCFrame = CFrame.new(currentPos, currentPos + lookDir)
@@ -214,36 +209,29 @@ while elapsed < duration and running do
     elapsed += RunService.Heartbeat:Wait()
 
     local t = math.clamp(elapsed / duration, 0, 1)
-    local alpha
-    if deltaY > 2 then
-        alpha = 1 - (1 - t) ^ 3
-    elseif deltaY < -2 then
-        alpha = t ^ 3
+  local alpha
+if deltaY > 2 then
+    alpha = t ^ 2
+elseif deltaY < -2 then
+    alpha = 1 - (1 - t) ^ 2
+else
+    alpha = t
+end
+
+
+local currentPos
+if math.abs(deltaY) > 5 then
+    local easedT
+    if deltaY > 0 then
+        easedT = t ^ 2
     else
-        alpha = t
+        easedT = 1 - (1 - t) ^ 2
     end
+    currentPos = startPos:Lerp(targetPos, easedT)
+else
+    currentPos = startPos:Lerp(targetPos, alpha)
+end
 
-    local currentPos
-    if math.abs(deltaY) > 5 then
-        -- Tangga curam, pisahkan horizontal & vertical biar ga ngelayang
-        local t_h = math.clamp(elapsed / (duration * 0.7), 0, 1)
-        local t_v = math.clamp(elapsed / (duration * 0.3), 0, 1)
-
-        local horizPos = Vector3.new(
-            startPos.X + (targetPos.X - startPos.X) * t_h,
-            startPos.Y,
-            startPos.Z + (targetPos.Z - startPos.Z) * t_h
-        )
-        local vertPos = Vector3.new(
-            targetPos.X,
-            startPos.Y + (targetPos.Y - startPos.Y) * t_v,
-            targetPos.Z
-        )
-
-        currentPos = Vector3.new(horizPos.X, vertPos.Y, horizPos.Z)
-    else
-        currentPos = startPos:Lerp(targetPos, alpha)
-    end
 
 -- Hitung arah horizontal
 local direction = Vector3.new(targetPos.X - startPos.X, 0, targetPos.Z - startPos.Z)
