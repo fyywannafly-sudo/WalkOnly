@@ -55,6 +55,34 @@ local function getHRP()
     return char:WaitForChild("HumanoidRootPart")
 end
 
+local function findNearestTrackAndPoint()
+    local hrp = getHRP()
+    local currentPos = hrp.Position
+    
+    local nearestTrack = 1
+    local nearestPoint = 1
+    local nearestDistance = math.huge
+    
+    -- Cek semua track dan semua titik di track
+    for trackIdx, name in ipairs(orderedTrackNames) do
+        local track = savedTracks[name]
+        if track then
+            for pointIdx, point in ipairs(track) do
+                local distance = (currentPos - point).Magnitude
+                
+                if distance < nearestDistance then
+                    nearestDistance = distance
+                    nearestTrack = trackIdx
+                    nearestPoint = pointIdx
+                end
+            end
+        end
+    end
+    
+    print("Nearest position: Track " .. nearestTrack .. " Point " .. nearestPoint .. " (Distance: " .. math.floor(nearestDistance) .. ")")
+    return nearestTrack, nearestPoint
+end
+
 -- Respawn function
 local function respawnPlayer()
     player.Character:BreakJoints()
@@ -385,42 +413,63 @@ local function resumeTrackLoop()
     end
 end
 
--- FUNCTION RUNAUTOSUMMITLOOP (YANG DIPERBAIKI)
 local function runAutoSummitLoop()
+    -- Cari track DAN titik terdekat dari posisi sekarang
+    local startTrackIndex, startPointIndex = findNearestTrackAndPoint()
+    
     while running do
-        for idx, name in ipairs(orderedTrackNames) do
+        -- Mulai dari track terdekat, dari titik terdekat
+        for trackIdx = startTrackIndex, #orderedTrackNames do
             if not running then break end
 
-            print("Playing track:", name)
-            resumeData.trackName = name
-            resumeData.trackIndex = idx
-            resumeData.pointIndex = 1
-
-            local success, finished = pcall(function()
-                return playTrack(savedTracks[name], name)
-            end)
+            local name = orderedTrackNames[trackIdx]
+            local track = savedTracks[name]
             
-            if not success then
-                print("Error playing track '" .. name .. "':", finished)
-                finished = false
-            end
+            if track and #track > 1 then
+                print("Playing track:", name, "starting from point", startPointIndex)
+                resumeData.trackName = name
+                resumeData.trackIndex = trackIdx
+                
+                local success, finished
+                
+                if trackIdx == startTrackIndex then
+                    -- Track pertama: mulai dari titik terdekat
+                    success, finished = pcall(function()
+                        return playTrackFromPoint(track, name, startPointIndex, resumeData.lastFlatDir)
+                    end)
+                else
+                    -- Track berikutnya: mulai dari awal
+                    resumeData.pointIndex = 1
+                    resumeData.lastFlatDir = Vector3.new(0, 0, 1)
+                    success, finished = pcall(function()
+                        return playTrack(track, name)
+                    end)
+                end
+                
+                if not success then
+                    print("Error playing track '" .. name .. "':", finished)
+                    finished = false
+                end
 
-            if not running then break end
-            if not finished then
-                print("Track dihentikan:", name)
-                break
+                if not running then break end
+                if not finished then
+                    print("Track dihentikan:", name)
+                    break
+                end
+                
+                -- Reset startPointIndex untuk track berikutnya
+                startPointIndex = 1
             end
         end
 
         if running then
-            print("Completed all tracks, respawning...")
+            print("Completed all tracks, teleporting to SummitReturnPad...")
             respawnPlayer()
-            player.CharacterAdded:Wait()
-            getHRP()
             task.wait(1)
-            
-            -- Reset track index untuk loop berikutnya
-            resumeData.trackIndex = 1
+
+            -- Cari lagi track terdekat setelah respawn
+            startTrackIndex, startPointIndex = findNearestTrackAndPoint()
+            resumeData.trackIndex = startTrackIndex
         end
     end
     print("Auto summit loop stopped")
