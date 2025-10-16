@@ -89,12 +89,6 @@ local Quest = Window:Tab({
     Locked = false,
 })
 
-local Trade = Window:Tab({
-    Title = "Trade",
-    Icon = "pickaxe", 
-    Locked = true,
-})
-
 local Setting = Window:Tab({
     Title = "Settings",
     Icon = "settings", 
@@ -503,7 +497,7 @@ local function setupFishCaughtHandler()
         
         -- 🎯 SETELAH DAPET IKAN: CHARGE 1x & REQUEST 3x
         if running then
-            task.wait(0.07)
+            task.wait(0.075)
             doChargeAndRequest()  -- ⚡ CHARGE 1x & REQUEST 3x
         end
     end)
@@ -2548,6 +2542,30 @@ local radarButton = Setting:Button({
             else
                 RFUpdateFishingRadar:InvokeServer(false) -- UNEQUIP
                 radarButton:SetTitle("Equip Fishing Radar")
+            end
+        end)
+    end
+})
+
+local oxygenEquipped = false
+local oxygenButton = Setting:Button({
+    Title = "Equip Oxygen Tank",
+    Callback = function()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local net = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
+        
+        -- Toggle state
+        oxygenEquipped = not oxygenEquipped
+        
+        -- Invoke dengan state yang sesuai
+        pcall(function()
+            if oxygenEquipped then
+                local args = {105}
+                net["RF/EquipOxygenTank"]:InvokeServer(unpack(args))  -- EQUIP
+                oxygenButton:SetTitle("Unequip Oxygen Tank")
+            else
+                net["RF/UnequipOxygenTank"]:InvokeServer()  -- UNEQUIP
+                oxygenButton:SetTitle("Equip Oxygen Tank")
             end
         end)
     end
