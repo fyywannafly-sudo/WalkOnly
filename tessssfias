@@ -420,7 +420,7 @@ local function doChargeAndRequest()
     safeInvoke(RFChargeFishingRod, 2)
     
 
-    for i = 1,1 do
+    for i = 1, 2 do
         safeInvoke(RFRequestFishingMinigameStarted, -1.25, 1)
         task.wait() 
     end
@@ -473,7 +473,7 @@ end
 local function spamCompletedLoop()
     while running do
         safeFire(REFishingCompleted)
-        task.wait(0.01)
+        task.wait()
     end
 end
 
@@ -503,7 +503,7 @@ local function setupFishCaughtHandler()
         
         -- 🎯 SETELAH DAPET IKAN: CHARGE 1x & REQUEST 3x
         if running then
-            task.wait(0.07)
+            task.wait(0.085)
             doChargeAndRequest()  -- ⚡ CHARGE 1x & REQUEST 3x
         end
     end)
