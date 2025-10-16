@@ -841,137 +841,94 @@ local Section = Auto:Section({
 })
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
 local REFavoriteItem = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/FavoriteItem"]
 local REObtainedNewFishNotification = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/ObtainedNewFishNotification"]
 
-local fishTiers = {
-    ["Common"] = {},
-    ["Uncommon"] = {},
-    ["Rare"] = {},
-    ["Epic"] = {},
-    ["Legendary"] = {},
-    ["Mythic"] = {},
-    ["SECRET"] = {}
-}
-
-local autoFavoriteEnabled = false
+-- SIMPLE VARIABLES
+local fishTiers = {}
+local allMutations = {"Albino", "Color Burn", "Corrupt", "Fairy Dust", "Festive", "Frozen", "Galaxy", "Gemstone", "Ghost", "Gold", "Holographic", "Lightning", "Midnight", "Radioactive", "Stone"}
 local connection = nil
-local selectedTiers = {""}
+local selectedTiers = {}
+local selectedMutations = {}
 
-local function getTierName(tierNumber)
-    local tierMap = {
-        [1] = "Common",
-        [2] = "Uncommon", 
-        [3] = "Rare",
-        [4] = "Epic",
-        [5] = "Legendary",
-        [6] = "Mythic",
-        [7] = "SECRET"
-    }
-    return tierMap[tierNumber] or "Unknown"
-end
-
-local function scanAllFishItems()
-    local ItemsFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Items")
-    if not ItemsFolder then 
-        return 0
-    end
+-- SCAN FUNCTION SIMPLE
+local function scanFish()
+    local Items = game:GetService("ReplicatedStorage"):FindFirstChild("Items")
+    if not Items then return end
     
-    local fishCount = 0
+    fishTiers = {Common={}, Uncommon={}, Rare={}, Epic={}, Legendary={}, Mythic={}, SECRET={}}
     
-    for tierName, _ in pairs(fishTiers) do
-        fishTiers[tierName] = {}
-    end
-    
-    for _, item in pairs(ItemsFolder:GetDescendants()) do
+    for _, item in pairs(Items:GetDescendants()) do
         if item:IsA("ModuleScript") then
-            local success, itemData = pcall(function()
-                return require(item)
-            end)
-            
-            if success and itemData then
-                local data = itemData.Data or itemData
-                
-                if data and type(data) == "table" and data.Id and data.Name and data.Tier then
-                    fishCount = fishCount + 1
-                    
-                    local tierName = getTierName(data.Tier)
-                    if fishTiers[tierName] then
-                        table.insert(fishTiers[tierName], data.Id)
-                    end
+            local success, data = pcall(require, item)
+            if success and data and data.Data and data.Data.Id and data.Data.Tier then
+                local tierName = ({[1]="Common",[2]="Uncommon",[3]="Rare",[4]="Epic",[5]="Legendary",[6]="Mythic",[7]="SECRET"})[data.Data.Tier]
+                if tierName then
+                    table.insert(fishTiers[tierName], data.Data.Id)
                 end
             end
         end
     end
-    
-    for tierName, fishIds in pairs(fishTiers) do
-    end
-    
-    return fishCount
 end
 
-local function getSelectedFishIds()
-    local targetFishIds = {}
-    for _, tierName in pairs(selectedTiers) do
-        if fishTiers[tierName] then
-            for _, fishId in pairs(fishTiers[tierName]) do
-                table.insert(targetFishIds, fishId)
-            end
+-- GET MUTATION
+local function getMutation(weightData, itemData)
+    return (weightData and weightData.VariantId) or (itemData and itemData.InventoryItem and itemData.InventoryItem.Metadata and itemData.InventoryItem.Metadata.VariantId)
+end
+
+-- MAIN HANDLER
+local function handleFish(fishId, weightData, itemData, isNew)
+    local mutation = getMutation(weightData, itemData)
+    
+    -- Check Rarity
+    for _, tier in pairs(selectedTiers) do
+        if fishTiers[tier] and table.find(fishTiers[tier], fishId) then
+            REFavoriteItem:FireServer(itemData and itemData.InventoryItem and itemData.InventoryItem.UUID or fishId)
+            print("⭐ Rarity: " .. fishId)
+            return
         end
     end
-    return targetFishIds
-end
-
-local function handleFishCaught(fishId, weightData, itemData, isNew)
-    local targetFishIds = getSelectedFishIds()
-    if fishId and table.find(targetFishIds, fishId) then
-        if itemData and itemData.InventoryItem and itemData.InventoryItem.UUID then
-            REFavoriteItem:FireServer(itemData.InventoryItem.UUID)
-        else
-            REFavoriteItem:FireServer(fishId)
-        end
+    
+    -- Check Mutation
+    if mutation and table.find(selectedMutations, mutation) then
+        REFavoriteItem:FireServer(itemData and itemData.InventoryItem and itemData.InventoryItem.UUID or fishId)
+        print("⭐ Mutation: " .. fishId .. " (" .. mutation .. ")")
     end
 end
 
--- UI ELEMENTS
-local Dropdown = Auto:Dropdown({
-    Title = "Auto Favorite With Rarity",
-    Values = {"Common", "Uncommon", "Rare", "Epic","Legendary", "Mythic","SECRET"},
-    Value = {""},
+Auto:Dropdown({
+    Title = "Rarity",
+    Values = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "SECRET"},
+    Value = {},
     Multi = true,
-    AllowNone = false,
-    Callback = function(selected)
-        selectedTiers = selected
-    end
+    Callback = function(v) selectedTiers = v end
 })
 
-local Toggle = Auto:Toggle({
-    Title = "Auto Favorite Fish",
-    Type = "Toggle",
+Auto:Dropdown({
+    Title = "Mutation",
+    Values = allMutations,
+    Value = {},
+    Multi = true,
+    Callback = function(v) selectedMutations = v end
+})
+
+Auto:Toggle({
+    Title = "Enable Auto Favorite",
     Default = false,
     Callback = function(state)
-        autoFavoriteEnabled = state
-        if autoFavoriteEnabled then
-            local targetFishIds = getSelectedFishIds()
-            if #targetFishIds > 0 then
-                connection = REObtainedNewFishNotification.OnClientEvent:Connect(handleFishCaught)
-            else
-                autoFavoriteEnabled = false
-                Toggle:Set(false)
-            end
-        else
-            if connection then
-                connection:Disconnect()
-                connection = nil
-            end
+        if state then
+            connection = REObtainedNewFishNotification.OnClientEvent:Connect(handleFish)
+        elseif connection then
+            connection:Disconnect()
+            connection = nil
         end
     end
 })
 
+-- AUTO SCAN
 task.spawn(function()
     task.wait(2)
-    scanAllFishItems()
+    scanFish()
 end)
 
 ------------ END OF MAIN FEATURE --------------
@@ -2098,74 +2055,7 @@ local AntiLagButton = Setting:Button({
     Title = "Apply Anti Lag",
     Desc = "Optimalkan game untuk mengurangi lag",
     Callback = function()
-        WindUI:Notify({
-            Title = "Anti Lag",
-            Content = "Mengaplikasikan optimasi...",
-            Duration = 2,
-            Icon = "loader",
-        })
-        
-        local Lighting = game:GetService("Lighting")
-        local Workspace = game:GetService("Workspace")
-        local player = game.Players.LocalPlayer
-        
-        for _, obj in ipairs(Workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and not obj:IsDescendantOf(player.Character) then
-                obj.Material = Enum.Material.Plastic
-            end
-        end
-
-        for _, obj in ipairs(Workspace:GetDescendants()) do
-            if obj:IsA("ParticleEmitter") or obj:IsA("Beam") or obj:IsA("Trail") or obj:IsA("Sparkles") or obj:IsA("Smoke") or obj:IsA("Fire") then
-                obj.Enabled = false
-            end
-        end
-
-        for _, obj in ipairs(Lighting:GetChildren()) do
-            if obj:IsA("BloomEffect") or obj:IsA("BlurEffect") or obj:IsA("ColorCorrectionEffect") or obj:IsA("DepthOfFieldEffect") or obj:IsA("SunRaysEffect") then
-                obj.Enabled = false
-            end
-        end
-
-        local camera = Workspace.CurrentCamera
-        for _, obj in ipairs(camera:GetChildren()) do
-            if obj:IsA("BlurEffect") then
-                obj.Enabled = false
-            end
-        end
-
-        local sky = Lighting:FindFirstChildOfClass("Sky")
-        if sky then
-            sky.CelestialBodiesShown = false
-            sky.StarCount = 0
-        end
-
-        Lighting.GlobalShadows = false
-        Lighting.Technology = Enum.Technology.Compatibility
-        Lighting.FogEnd = 100000
-        Lighting.EnvironmentDiffuseScale = 0
-        Lighting.EnvironmentSpecularScale = 0
-        Lighting.Brightness = 1
-        Lighting.OutdoorAmbient = Color3.new(0.5, 0.5, 0.5)
-
-        for _, obj in ipairs(Workspace:GetDescendants()) do
-            if obj:IsA("PointLight") or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then
-                obj.Enabled = false
-            end
-        end
-
-        for _, obj in ipairs(Workspace:GetDescendants()) do
-            if obj:IsA("Sound") then
-                obj.Playing = false
-            end
-        end
-        
-        WindUI:Notify({
-            Title = "Anti Lag",
-            Content = "Optimasi berhasil diaplikasikan!",
-            Duration = 3,
-            Icon = "check",
-        })
+        loadstring(game:HttpGet("https://pastebin.com/raw/C7W8GSu4"))()
     end
 })
 
@@ -2481,38 +2371,30 @@ local section = Setting:Section({
 
 local radarEquipped = false
 local radarButton = Setting:Button({
-    Title = "Enable Fishing Radar",
+    Title = "Fishing Radar",
     Callback = function()
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local RFUpdateFishingRadar = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/UpdateFishingRadar"]
         radarEquipped = not radarEquipped
         pcall(function()
-            if radarEquipped then
-                RFUpdateFishingRadar:InvokeServer(true) 
-                radarButton:SetTitle("Unequip Fishing Radar")
-            else
-                RFUpdateFishingRadar:InvokeServer(false) 
-                radarButton:SetTitle("Equip Fishing Radar")
-            end
+            local RF = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net["RF/UpdateFishingRadar"]
+            RF:InvokeServer(radarEquipped)
+            radarButton:SetTitle(radarEquipped and "Unequip Radar" or "Equip Radar")
         end)
     end
 })
 
 local oxygenEquipped = false
 local oxygenButton = Setting:Button({
-    Title = "Equip Oxygen Tank",
+    Title = "Oxygen Tank",
     Callback = function()
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local net = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
         oxygenEquipped = not oxygenEquipped
         pcall(function()
+            local net = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net
             if oxygenEquipped then
-                local args = {105}
-                net["RF/EquipOxygenTank"]:InvokeServer(unpack(args))  
-                oxygenButton:SetTitle("Unequip Oxygen Tank")
+                net["RF/EquipOxygenTank"]:InvokeServer(105)
+                oxygenButton:SetTitle("Unequip Tank")
             else
-                net["RF/UnequipOxygenTank"]:InvokeServer()  
-                oxygenButton:SetTitle("Equip Oxygen Tank")
+                net["RF/UnequipOxygenTank"]:InvokeServer()
+                oxygenButton:SetTitle("Equip Tank")
             end
         end)
     end
