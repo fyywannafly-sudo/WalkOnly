@@ -1716,10 +1716,10 @@ local function getElementJungleProgress()
     return progress
 end
 
-local function teleportToLocation(position)
+local function teleportToLocation(cframe)
     local player = game.Players.LocalPlayer
     if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        player.Character.HumanoidRootPart.CFrame = CFrame.new(position)
+        player.Character.HumanoidRootPart.CFrame = cframe
     end
 end
 
@@ -1735,8 +1735,14 @@ local function startElementJungleQuest()
             continue
         end
         
+        print("🔍 Checking Quest Progress...")
+        print("Quest 1:", progress[1] and progress[1].completed and "COMPLETED" or "NOT COMPLETED")
+        print("Quest 2:", progress[2] and progress[2].completed and "COMPLETED" or "NOT COMPLETED") 
+        print("Quest 3:", progress[3] and progress[3].completed and "COMPLETED" or "NOT COMPLETED")
+        
         -- ✅ CEK QUEST 1: Harus selesai dulu
         if progress[1] and not progress[1].completed then
+            print("❌ Quest 1 belum selesai! Matikan toggle...")
             WindUI:Notify({
                 Title = "Element Jungle Quest",
                 Content = "Selesaikan Quest 1 Deep Sea dulu!",
@@ -1751,6 +1757,7 @@ local function startElementJungleQuest()
         if progress[1] and progress[1].completed and 
            progress[2] and progress[2].completed and 
            progress[3] and progress[3].completed then
+            print("✅ Semua quest selesai! Matikan toggle...")
             WindUI:Notify({
                 Title = "Element Jungle Quest",
                 Content = "Quest 1,2,3 sudah selesai! System auto stop.",
@@ -1763,6 +1770,7 @@ local function startElementJungleQuest()
         
         -- ✅ CEK QUEST 2: Auto selesain (SEPARATE CHECK)
         if progress[2] and not progress[2].completed then
+            print("🎯 Teleport ke Quest 2...")
             teleportToLocation(quest2Location)
             WindUI:Notify({
                 Title = "Element Jungle Quest",
@@ -1773,6 +1781,7 @@ local function startElementJungleQuest()
         
         -- ✅ CEK QUEST 3: Auto selesain (SEPARATE CHECK)  
         if progress[3] and not progress[3].completed then
+            print("🎯 Teleport ke Quest 3...")
             teleportToLocation(quest3Location)
             WindUI:Notify({
                 Title = "Element Jungle Quest", 
@@ -1783,6 +1792,7 @@ local function startElementJungleQuest()
         
         task.wait(5)
     end
+    print("🔚 Element Jungle Quest loop berhenti")
 end
 
 local ElementJungleToggle = Quest:Toggle({
@@ -1790,14 +1800,18 @@ local ElementJungleToggle = Quest:Toggle({
     Default = false,
     Callback = function(state)
         runningElementJungle = state
+        print("🔄 Toggle Element Jungle:", state)
         if state then
             -- Auto nyalain Auto Fishing
             if not autoFishingRunning then
+                print("🎣 Auto nyalain Auto Fishing...")
                 autoFishingToggle:Set(true)
             end
             task.spawn(function()
                 startElementJungleQuest()
             end)
+        else
+            print("⏹️ Element Jungle dimatikan manual")
         end
     end
 })
