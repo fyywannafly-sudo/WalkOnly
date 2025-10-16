@@ -502,7 +502,7 @@ local function setupFishCaughtHandler()
         
         -- 🎯 SETELAH DAPET IKAN: CHARGE 1x & REQUEST 3x
         if running then
-            task.wait(0.07)
+            task.wait(0.05)
             doChargeAndRequest()  -- ⚡ CHARGE 1x & REQUEST 3x
         end
     end)
