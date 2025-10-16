@@ -1683,9 +1683,125 @@ local Button = Quest:Button({
     end
 })
 
-local section = Quest:Section({ 
-    Title = "Auto Complete Quest Comming Soon Guys ...",
+local runningElementJungle = false
+
+local function getElementJungleProgress()
+    local Replion = require(ReplicatedStorage.Packages.Replion)
+    local QuestList = require(ReplicatedStorage.Shared.Quests.QuestList)
+    local questData = Replion.Client:WaitReplion("Data")
+    
+    local elementJungleData = questData:Get({"ElementJungle", "Available", "Forever"})
+    
+    if not elementJungleData or not elementJungleData.Quests then
+        return nil
+    end
+    
+    local progress = {}
+    local elementJungleQuests = QuestList.ElementJungle.Forever
+    
+    for i, questInfo in ipairs(elementJungleQuests) do
+        local questProgress = elementJungleData.Quests[i]
+        local target = questInfo.Arguments.value
+        local current = questProgress and questProgress.Progress or 0
+        local completed = current >= target
+        
+        progress[i] = {
+            name = questInfo.DisplayName,
+            current = current,
+            target = target,
+            completed = completed
+        }
+    end
+    
+    return progress
+end
+
+local function teleportToLocation(position)
+    local player = game.Players.LocalPlayer
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        player.Character.HumanoidRootPart.CFrame = CFrame.new(position)
+    end
+end
+
+local function startElementJungleQuest()
+    local quest2Location = CFrame.new(1519.33215, 2.08891273, -307.090668, 0.632470906, -1.48247699e-08, 0.774584115, -2.24899335e-08, 1, 3.75027014e-08, -0.774584115, -4.11397139e-08, 0.632470906)
+    local quest3Location = CFrame.new(1413.84277, 4.375, -587.298279, 0.261966974, 5.50031594e-08, -0.965076864, -8.19077872e-09, 1, 5.47701973e-08, 0.965076864, -6.44325127e-09, 0.261966974)
+    
+    while runningElementJungle do
+        local success, progress = pcall(getElementJungleProgress)
+        
+        if not success or not progress then
+            task.wait(5)
+            continue
+        end
+        
+        -- ✅ CEK QUEST 1: Harus selesai dulu
+        if progress[1] and not progress[1].completed then
+            WindUI:Notify({
+                Title = "Element Jungle Quest",
+                Content = "Selesaikan Quest 1 Deep Sea dulu!",
+                Duration = 5,
+            })
+            runningElementJungle = false
+            ElementJungleToggle:Set(false)
+            break
+        end
+        
+        -- ✅ CEK JIKA QUEST 1,2,3 SUDAH SELESAI → AUTO STOP
+        if progress[1] and progress[1].completed and 
+           progress[2] and progress[2].completed and 
+           progress[3] and progress[3].completed then
+            WindUI:Notify({
+                Title = "Element Jungle Quest",
+                Content = "Quest 1,2,3 sudah selesai! System auto stop.",
+                Duration = 5,
+            })
+            runningElementJungle = false
+            ElementJungleToggle:Set(false)
+            break
+        end
+        
+        -- ✅ CEK QUEST 2: Auto selesain (SEPARATE CHECK)
+        if progress[2] and not progress[2].completed then
+            teleportToLocation(quest2Location)
+            WindUI:Notify({
+                Title = "Element Jungle Quest",
+                Content = "Auto Quest 2... Progress: " .. progress[2].current .. "/" .. progress[2].target,
+                Duration = 3,
+            })
+        end
+        
+        -- ✅ CEK QUEST 3: Auto selesain (SEPARATE CHECK)  
+        if progress[3] and not progress[3].completed then
+            teleportToLocation(quest3Location)
+            WindUI:Notify({
+                Title = "Element Jungle Quest", 
+                Content = "Auto Quest 3... Progress: " .. progress[3].current .. "/" .. progress[3].target,
+                Duration = 3,
+            })
+        end
+        
+        task.wait(5)
+    end
+end
+
+local ElementJungleToggle = Quest:Toggle({
+    Title = "Auto Element Jungle Quest",
+    Default = false,
+    Callback = function(state)
+        runningElementJungle = state
+        if state then
+            -- Auto nyalain Auto Fishing
+            if not autoFishingRunning then
+                autoFishingToggle:Set(true)
+            end
+            task.spawn(function()
+                startElementJungleQuest()
+            end)
+        end
+    end
 })
+
 ----------------- webhook -------------
 
 local webhookUrl = "YOUR_WEBHOOK_URL_HERE"
@@ -2101,8 +2217,6 @@ local AnimatorToggle = Setting:Toggle({
     end
 })
 
-
-
 local function Main()
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local Players = game:GetService("Players")
@@ -2364,38 +2478,3 @@ if Discord then
         end
     })
 end
-
-local section = Setting:Section({ 
-    Title = "Ultinity",
-})
-
-local radarEquipped = false
-local radarButton = Setting:Button({
-    Title = "Fishing Radar",
-    Callback = function()
-        radarEquipped = not radarEquipped
-        pcall(function()
-            local RF = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net["RF/UpdateFishingRadar"]
-            RF:InvokeServer(radarEquipped)
-            radarButton:SetTitle(radarEquipped and "Unequip Radar" or "Equip Radar")
-        end)
-    end
-})
-
-local oxygenEquipped = false
-local oxygenButton = Setting:Button({
-    Title = "Oxygen Tank",
-    Callback = function()
-        oxygenEquipped = not oxygenEquipped
-        pcall(function()
-            local net = game:GetService("ReplicatedStorage").Packages._Index["sleitnick_net@0.2.0"].net
-            if oxygenEquipped then
-                net["RF/EquipOxygenTank"]:InvokeServer(105)
-                oxygenButton:SetTitle("Unequip Tank")
-            else
-                net["RF/UnequipOxygenTank"]:InvokeServer()
-                oxygenButton:SetTitle("Equip Tank")
-            end
-        end)
-    end
-})
