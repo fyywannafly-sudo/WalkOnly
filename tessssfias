@@ -33,14 +33,6 @@ local Window = WindUI:CreateWindow({
     BackgroundImageTransparency = 0.42,
     HideSearchBar = false,
     ScrollBarEnabled = false,
-    
-    User = {
-        Enabled = false,
-        Anonymous = true,
-        Callback = function()
-            print("clicked")
-        end,
-    },
 })
 
 Window:SetToggleKey(Enum.KeyCode.G)
@@ -56,55 +48,46 @@ WindUI:Notify({
 local Info = Window:Tab({
     Title = "Info",
     Icon = "info", 
-    Locked = false,
 })
 
 local Player = Window:Tab({
     Title = "Player",
     Icon = "user", 
-    Locked = false,
 })
 
 local Auto = Window:Tab({
     Title = "Main",
     Icon = "play", 
-    Locked = false,
 })
 
 local Shop = Window:Tab({
     Title = "Shop",
     Icon = "shopping-cart", 
-    Locked = false,
 })
 
 local Teleport = Window:Tab({
     Title = "Teleport",
     Icon = "map-pin",
-    Locked = false,
 })
 
 local Quest = Window:Tab({
     Title = "Quest",
     Icon = "loader", 
-    Locked = false,
 })
 
 local Setting = Window:Tab({
     Title = "Settings",
     Icon = "settings", 
-    Locked = false,
 })
 
 local Enchant = Window:Tab({
 	Title = "Enchants",
 	Icon = "star",
-	Locked = false,
 })
 
 local Discord = Window:Tab({
     Title = "Webhook",
     Icon = "megaphone", 
-    Locked = false,
 })
 
 ----------- END OF TAB -------------
@@ -136,7 +119,7 @@ local function copyLink(link, buttonTitle, notifTitle, notifContent)
                 Icon = "bell",
             })
 
-            print("Link copied:", link) -- optional log
+            print("Link copied:", link) 
         end
     })
 
@@ -251,6 +234,96 @@ local NoClipToggle = Player:Toggle({
     end
 })
 
+local walkOnWater = false
+local waterPlatform = nil
+
+local waterToggle = Player:Toggle({
+    Title = "Walk On Water", 
+    Default = false,
+    Callback = function(state)
+        walkOnWater = state
+        local player = game.Players.LocalPlayer
+        local character = player.Character
+        
+        if state then
+            if character then
+                local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+                if humanoidRootPart then
+                    if waterPlatform then
+                        waterPlatform:Destroy()
+                    end
+                    
+                    waterPlatform = Instance.new("Part")
+                    waterPlatform.Name = "WaterPlatform"
+                    waterPlatform.Anchored = true
+                    waterPlatform.CanCollide = true
+                    waterPlatform.Size = Vector3.new(20, 1, 20)
+                    waterPlatform.Transparency = 1
+                    waterPlatform.Material = Enum.Material.Plastic
+                    
+                    local currentPos = humanoidRootPart.Position
+                    waterPlatform.Position = Vector3.new(currentPos.X, 0, currentPos.Z)
+                    waterPlatform.Parent = workspace
+                    
+                end
+            end
+        else
+            if waterPlatform then
+                waterPlatform:Destroy()
+                waterPlatform = nil
+            end
+        end
+    end
+})
+
+game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
+    task.wait(1)
+    
+    if walkOnWater and waterPlatform then
+        local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+        if humanoidRootPart then
+            local currentPos = humanoidRootPart.Position
+            waterPlatform.Position = Vector3.new(currentPos.X, 0, currentPos.Z)
+        end
+    end
+end)
+
+local RunService = game:GetService("RunService")
+RunService.Heartbeat:Connect(function()
+    if walkOnWater and waterPlatform then
+        local character = game.Players.LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            local rootPos = character.HumanoidRootPart.Position
+            waterPlatform.Position = Vector3.new(rootPos.X, 0, rootPos.Z)
+        end
+    end
+end)
+
+
+local respawnButton = Player:Button({
+    Title = "Respawned at current position",
+    Callback = function()
+        local player = game.Players.LocalPlayer
+        local character = player.Character
+        
+        if character then
+            local humanoid = character:FindFirstChild("Humanoid")
+            local currentPosition = character:GetPivot().Position            
+            if humanoid then
+                local savedPosition = currentPosition               
+                humanoid.Health = 0               
+                player.CharacterAdded:Connect(function(newCharacter)
+                    task.wait(1)  
+                    local newHumanoidRootPart = newCharacter:FindFirstChild("HumanoidRootPart")
+                    if newHumanoidRootPart then
+                        newHumanoidRootPart.CFrame = CFrame.new(savedPosition)
+                    end
+                end)
+            end
+        end
+    end
+})
+
 Player:Space()
 Player:Divider()
 
@@ -282,38 +355,29 @@ task.spawn(function()
     while true do
         cycle += 1
         
-        -- 🎯 RANDOM INTERVAL (25-40 DETIK) - NATURAL BANGET
         local waitTime = math.random(600, 700)
         task.wait(waitTime)
-        
-        -- 🎯 RANDOM KEY COMBINATION (AMAN GA GERAK)
         local keyCombos = {
-            {Enum.KeyCode.LeftShift, Enum.KeyCode.E},     -- Sprint + Interact
-            {Enum.KeyCode.LeftControl, Enum.KeyCode.F},   -- Crouch + Interact  
-            {Enum.KeyCode.Q, Enum.KeyCode.Tab},           -- Menu + Scoreboard
-            {Enum.KeyCode.LeftShift, Enum.KeyCode.Q},     -- Sprint + Menu
-            {Enum.KeyCode.E, Enum.KeyCode.F},             -- Double Interact
+            {Enum.KeyCode.LeftShift, Enum.KeyCode.E},    
+            {Enum.KeyCode.LeftControl, Enum.KeyCode.F},     
+            {Enum.KeyCode.Q, Enum.KeyCode.Tab},           
+            {Enum.KeyCode.LeftShift, Enum.KeyCode.Q},     
+            {Enum.KeyCode.E, Enum.KeyCode.F},             
         }
         
         local chosenCombo = keyCombos[math.random(1, #keyCombos)]
-        
-        -- 🎯 PRESS MULTIPLE KEYS SEKALIGUS
         pcall(function()
-            -- Press semua keys dalam combo
             for _, key in pairs(chosenCombo) do
                 VirtualInputManager:SendKeyEvent(true, key, false, nil)
             end
             
-            task.wait(0.1) -- Hold bentar
-            
-            -- Release semua keys
-            for _, key in pairs(chosenCombo) do
+            task.wait(0.1) 
+                for _, key in pairs(chosenCombo) do
                 VirtualInputManager:SendKeyEvent(false, key, false, nil)
             end
         end)        
     end
 end)
-
 print("ANTI-AFK : ON By Fyy")
 
 local Section = Auto:Section({ 
@@ -341,7 +405,7 @@ local running = false
 local equipped = false
 local lastResetTime = 0
 local fishCheckEnabled = false
-local initialSetupDone = false  -- 🆕 Flag untuk setup awal
+local initialSetupDone = false 
 
 local function safeFire(remote, arg)
 	if not remote then
@@ -433,14 +497,10 @@ local function forceResetFishing()
         safeInvoke(RFCancelFishingInputs)
     end
     
-    -- 🔄 RESET TOOL (Unequip + Equip)
     resetTool()
-    
-    -- 🎯 TAMBAHAN BARU: CHARGE 1x & REQUEST 3x SETELAH RESET
-    task.wait(0.5)  -- ⏳ Kasih delay sebentar buat pastikan tool ready
-    doChargeAndRequest()  -- 🔥 CHARGE 1x & REQUEST 3x
-    
-    lastFishTime = tick()  -- ⏰ RESET TIMER
+    task.wait(0.5) 
+    doChargeAndRequest()  
+    lastFishTime = tick() 
 end
 
 local function fishCheckLoop()
@@ -463,7 +523,6 @@ local function fishCheckLoop()
     end
 end
 
--- 🚀 PROCESS 1: SPAM COMPLETED TERUS MENERUS
 local function spamCompletedLoop()
     while running do
         safeFire(REFishingCompleted)
@@ -471,7 +530,6 @@ local function spamCompletedLoop()
     end
 end
 
--- ⏱️ PROCESS 2: EQUIP TOOL SETIAP 2 DETIK
 local function equipToolLoop()
     while running do
         safeFire(REEquipToolFromHotbar, 1)
@@ -479,7 +537,6 @@ local function equipToolLoop()
     end
 end
 
--- 🛡️ PROCESS 3: PERIODIC RESET SETIAP 5 MENIT
 local function periodicResetLoop()
     while running do
         task.wait(300)
@@ -490,15 +547,13 @@ local function periodicResetLoop()
     end
 end
 
--- 🆕 EVENT HANDLER: TRIGGER CHARGE & REQUEST SETIAP DAPET IKAN
 local function setupFishCaughtHandler()
     REFishCaught.OnClientEvent:Connect(function(fishName, fishData)
         lastFishTime = tick()
         
-        -- 🎯 SETELAH DAPET IKAN: CHARGE 1x & REQUEST 3x
         if running then
             task.wait(0.075)
-            doChargeAndRequest()  -- ⚡ CHARGE 1x & REQUEST 3x
+            doChargeAndRequest() 
         end
     end)
 end
@@ -508,22 +563,18 @@ local function fishingCycle()
     lastFishTime = tick()
     fishCheckEnabled = true
     
-    -- 🆕 SETUP FISH CAUGHT HANDLER
     setupFishCaughtHandler()
     
-    -- ✅ STEP 1: SPAM PARALEL (COMPLETED + EQUIP TOOL)
     task.spawn(spamCompletedLoop)
     task.spawn(equipToolLoop)
     task.spawn(fishCheckLoop)
     task.spawn(periodicResetLoop)
     
-    -- ✅ STEP 2: SETUP AWAL - CHARGE 1x & REQUEST 3x
-    task.wait(0.5)  -- ⏳ Kasih delay sebentar buat pastikan tool ter-equip
-    doChargeAndRequest()  -- 🎯 INITIAL CHARGE 1x & REQUEST 3x
+    task.wait(0.5)  
+    doChargeAndRequest()  
     initialSetupDone = true
     
     
-    -- 🔄 MAIN LOOP 
     while running do
         task.wait()
     end
@@ -539,7 +590,7 @@ autoFishingToggle = Auto:Toggle({
     Default = false,
     Callback = function(state) 
         running = state
-        autoFishingRunning = state  -- Update variable
+        autoFishingRunning = state 
         if running then
             task.spawn(fishingCycle)
         else
@@ -562,7 +613,6 @@ local Section = Auto:Section({
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
--- 🎯 PAKAI CFrame UNTUK SIMPAN ROTATION JUGA
 local teleportLocations = {
     ["Fisherman Island"] = CFrame.new(77, 9, 2706),
     ["Kohana Volcano"] = CFrame.new(-628.758911, 35.710186, 104.373764, 0.482912123, 1.81591773e-08, 0.875668824, 3.01732896e-08, 1, -3.73774007e-08, -0.875668824, 4.44718076e-08, 0.482912123),
@@ -607,7 +657,6 @@ local function startFreeze()
                 local distanceFromStart = (currentCFrame.Position - lastCFrame.Position).Magnitude
                 
                 if distanceFromStart > 0.1 then
-                    -- 🎯 SEKARANG PAKAI CFrame LENGKAP (POSISI + ROTASI)
                     rootPart.CFrame = targetCFrame
                     lastCFrame = targetCFrame
                 end
@@ -645,7 +694,6 @@ local TeleportToggle = Auto:Toggle({
                 local targetCFrame = teleportLocations[selectedLocation]
                 
                 if rootPart and targetCFrame then
-                    -- 🎯 TELEPORT DENGAN ROTASI
                     rootPart.CFrame = targetCFrame
                     task.wait(0.1)
                     startFreeze()
@@ -666,7 +714,6 @@ local savedCFrame = nil
 local freezeLoop = nil
 local teleportEnabled = false
 
--- 🎯 SAVE POSITION + ROTATION
 local function saveCurrentPosition()
     if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
         local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
@@ -678,7 +725,6 @@ local function saveCurrentPosition()
     return false
 end
 
--- 🎯 FREEZE DENGAN ROTATION
 local function startFreeze()
     if freezeLoop then return end
     
@@ -687,7 +733,6 @@ local function startFreeze()
             local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
             
             if savedCFrame then
-                -- 🎯 SET POSITION + ROTATION
                 rootPart.CFrame = savedCFrame
             end
         end
@@ -701,13 +746,11 @@ local function stopFreeze()
     end
 end
 
--- 🎯 BUTTON SAVE
 local SaveButton = Auto:Button({
     Title = "Save Your Position",
     Callback = saveCurrentPosition
 })
 
--- 🎯 TOGGLE TELEPORT + FREEZE
 local TeleportToggle = Auto:Toggle({
     Title = "Teleport & Freeze to Position",
     Default = false,
@@ -722,7 +765,6 @@ local TeleportToggle = Auto:Toggle({
                 return
             end
             
-            -- 🎯 TELEPORT KE POSISI + ROTASI YANG DISIMPAN
             if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                 local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
                 rootPart.CFrame = savedCFrame
@@ -742,9 +784,8 @@ local Section = Auto:Section({
 })
 
 local autoSellEnabled = false
-local autoSellInterval = 5 -- menit
+local autoSellInterval = 5 
 
--- Slider
 local AutoSellSlider = Auto:Slider({
     Title = "Auto Sell Timer (Minutes)",
     Step = 1,
@@ -754,7 +795,6 @@ local AutoSellSlider = Auto:Slider({
     end
 })
 
--- Sell function
 local function sellAllItems()
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local RFSellAllItems = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/SellAllItems"]
@@ -764,18 +804,14 @@ local function sellAllItems()
     end)
 end
 
--- 🎯 SUPER SIMPLE TIMER - PASTI WORK
 local function startAutoSell()
     task.spawn(function()
         while autoSellEnabled do
-            -- 🎯 TUNGGU SELAMA INTERVAL
             local secondsToWait = autoSellInterval * 60
             for i = 1, secondsToWait do
                 if not autoSellEnabled then break end
                 task.wait(1)
             end
-            
-            -- 🎯 JIKA MASIH NYALA, SELL
             if autoSellEnabled then
                 sellAllItems()
             end
@@ -783,7 +819,6 @@ local function startAutoSell()
     end)
 end
 
--- Toggle
 local AutoSellToggle = Auto:Toggle({
     Title = "Enable Auto Sell",
     Default = false,
@@ -796,7 +831,6 @@ local AutoSellToggle = Auto:Toggle({
     end
 })
 
--- Manual sell
 local ManualSellButton = Auto:Button({
     Title = "Sell All Items Now",
     Callback = sellAllItems
@@ -812,52 +846,70 @@ local REFavoriteItem = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].
 local REObtainedNewFishNotification = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/ObtainedNewFishNotification"]
 
 local fishTiers = {
-    ["Common"] = {
-        43, 20, 66, 45, 64, 31, 46, 116, 32, 63, 
-        33, 65, 62, 51, 61, 92, 91, 90, 108, 109,
-        111, 112, 113, 114, 115, 135, 154, 151, 166, 165,
-        198, 234, 281, 279, 290
-    },
-    ["Uncommon"] = {
-        44, 59, 19, 67, 41, 68, 60, 50, 117, 29,
-        42, 30, 58, 28, 69, 190, 87, 86, 94, 106,
-        107, 121, 120, 139, 140, 144, 142, 163, 161, 153,
-        164, 189, 182, 186, 188, 197, 202, 203, 204, 211,
-        232, 237, 242, 280, 287, 289, 275, 285, 262, 288
-    },
-    ["Rare"] = {
-        18, 71, 40, 72, 23, 89, 88, 93, 119, 157,
-        191, 183, 184, 194, 196, 210, 209, 239, 238, 235,
-        241, 278, 282, 277, 284
-    },
-    ["Epic"] = {
-        18, 71, 40, 72, 23, 89, 88, 93, 119, 157,
-        191, 183, 184, 194, 196, 210, 209, 239, 238, 235,
-        241, 278, 282, 277, 284, 17, 22, 37, 53, 57,
-        26, 70, 14, 49, 25, 24, 48, 36, 38, 16,
-        56, 55, 27, 39, 74, 73, 95, 96, 138, 143,
-        160, 155, 162, 149, 207, 227, 233, 266, 267, 271,
-        265, 276, 268, 270
-    },
-    ["Legendary"] = {
-        15, 47, 75, 52, 21, 34, 54, 35, 97, 110,
-        137, 146, 147, 152, 199, 208, 224, 236, 243, 286,
-        283, 274, 296
-    },
-    ["Mythic"] = {
-        98, 122, 158, 150, 185, 205, 215, 240, 247, 249,
-        248, 273, 264, 263
-    },
-    ["SECRET"] = {
-        82, 99, 136, 141, 159, 156, 145, 187, 200, 195,
-        206, 201, 225, 218, 228, 226, 83, 176, 292, 293,
-        272, 269, 295
-    }
+    ["Common"] = {},
+    ["Uncommon"] = {},
+    ["Rare"] = {},
+    ["Epic"] = {},
+    ["Legendary"] = {},
+    ["Mythic"] = {},
+    ["SECRET"] = {}
 }
 
 local autoFavoriteEnabled = false
 local connection = nil
 local selectedTiers = {""}
+
+local function getTierName(tierNumber)
+    local tierMap = {
+        [1] = "Common",
+        [2] = "Uncommon", 
+        [3] = "Rare",
+        [4] = "Epic",
+        [5] = "Legendary",
+        [6] = "Mythic",
+        [7] = "SECRET"
+    }
+    return tierMap[tierNumber] or "Unknown"
+end
+
+local function scanAllFishItems()
+    local ItemsFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Items")
+    if not ItemsFolder then 
+        return 0
+    end
+    
+    local fishCount = 0
+    
+    for tierName, _ in pairs(fishTiers) do
+        fishTiers[tierName] = {}
+    end
+    
+    for _, item in pairs(ItemsFolder:GetDescendants()) do
+        if item:IsA("ModuleScript") then
+            local success, itemData = pcall(function()
+                return require(item)
+            end)
+            
+            if success and itemData then
+                local data = itemData.Data or itemData
+                
+                if data and type(data) == "table" and data.Id and data.Name and data.Tier then
+                    fishCount = fishCount + 1
+                    
+                    local tierName = getTierName(data.Tier)
+                    if fishTiers[tierName] then
+                        table.insert(fishTiers[tierName], data.Id)
+                    end
+                end
+            end
+        end
+    end
+    
+    for tierName, fishIds in pairs(fishTiers) do
+    end
+    
+    return fishCount
+end
 
 local function getSelectedFishIds()
     local targetFishIds = {}
@@ -882,6 +934,7 @@ local function handleFishCaught(fishId, weightData, itemData, isNew)
     end
 end
 
+-- UI ELEMENTS
 local Dropdown = Auto:Dropdown({
     Title = "Auto Favorite With Rarity",
     Values = {"Common", "Uncommon", "Rare", "Epic","Legendary", "Mythic","SECRET"},
@@ -916,6 +969,11 @@ local Toggle = Auto:Toggle({
     end
 })
 
+task.spawn(function()
+    task.wait(2)
+    scanAllFishItems()
+end)
+
 ------------ END OF MAIN FEATURE --------------
 local Section = Shop:Section({ 
     Title = "Fishing Rod Shop",
@@ -923,7 +981,6 @@ local Section = Shop:Section({
 
 local currentRod = ""
 
--- 🎯 DROPDOWN 
 local RodDropdown = Shop:Dropdown({
     Title = "Select Fishing Rod",
     Values = {
@@ -949,7 +1006,6 @@ local RodDropdown = Shop:Dropdown({
     end
 })
 
--- 🎯 BUTTON
 local PurchaseButton = Shop:Button({
     Title = "Purchase Fishing Rod",
     Callback = function()
@@ -990,14 +1046,12 @@ local PurchaseButton = Shop:Button({
     end
 })
 
------------------------------------------------
 local Section = Shop:Section({ 
     Title = "Purchase Bait",
 })
 
 local currentBait = ""
 
--- 🎯 DROPDOWN UNTUK BAIT
 local BaitDropdown = Shop:Dropdown({
     Title = "Select Bobbers",
     Values = {
@@ -1017,7 +1071,6 @@ local BaitDropdown = Shop:Dropdown({
     end
 })
 
--- 🎯 BUTTON UNTUK BELI BAIT
 local PurchaseBaitButton = Shop:Button({
     Title = "Purchase Bobbers",
     Callback = function()
@@ -1051,12 +1104,10 @@ local Section = Shop:Section({
     Title = "Purchase Weather",
 })
 
--- 🎯 VARIABLE UNTUK SIMPAN SELECTED WEATHER
 local selectedWeathers = {"Wind (10000)"}
 local autoBuyWeather = false
 local weatherLoop = nil
 
--- 🎯 DROPDOWN UNTUK WEATHER (MULTI SELECT)
 local WeatherDropdown = Shop:Dropdown({
     Title = "Select Weather",
     Values = {
@@ -1075,7 +1126,6 @@ local WeatherDropdown = Shop:Dropdown({
     end
 })
 
--- 🎯 FUNGSI UNTUK BELI WEATHER
 local function purchaseWeather(weatherName)
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local RFPurchaseWeatherEvent = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/PurchaseWeatherEvent"]
@@ -1095,7 +1145,6 @@ local function purchaseWeather(weatherName)
     end
 end
 
--- 🎯 BUTTON UNTUK BELI WEATHER SEKALI
 local PurchaseWeatherButton = Shop:Button({
     Title = "Purchase Weather",
     Callback = function()
@@ -1105,7 +1154,6 @@ local PurchaseWeatherButton = Shop:Button({
     end
 })
 
--- 🎯 TOGGLE UNTUK AUTO BUY WEATHER SETIAP 1 MENIT
 local AutoWeatherToggle = Shop:Toggle({
     Title = "Auto Buy Weather",
     Default = false,
@@ -1113,9 +1161,8 @@ local AutoWeatherToggle = Shop:Toggle({
         autoBuyWeather = state
         
         if state then
-            -- Start loop
             weatherLoop = game:GetService("RunService").Heartbeat:Connect(function()
-                task.wait(60) -- Tunggu 1 menit
+                task.wait(60) 
                 
                 if autoBuyWeather then
                     for _, weather in pairs(selectedWeathers) do
@@ -1124,7 +1171,6 @@ local AutoWeatherToggle = Shop:Toggle({
                 end
             end)
         else
-            -- Stop loop
             if weatherLoop then
                 weatherLoop:Disconnect()
                 weatherLoop = nil
@@ -1133,8 +1179,6 @@ local AutoWeatherToggle = Shop:Toggle({
     end
 })
 
-
--------- END OF SHOP FEATURE --------------
 local section = Teleport:Section({ 
     Title = "Teleport To Players",
 })
@@ -1144,7 +1188,6 @@ local player = Players.LocalPlayer
 
 local selectedPlayer = ""
 
--- 🎯 FUNGSI UNTUK REFRESH DROPDOWN
 local function refreshPlayerList()
     local playerNames = {}
     
@@ -1157,7 +1200,6 @@ local function refreshPlayerList()
     return playerNames
 end
 
--- 🎯 DROPDOWN UNTUK PILIH PLAYER
 local PlayerDropdown = Teleport:Dropdown({
     Title = "Select Player",
     Values = refreshPlayerList(),
@@ -1167,7 +1209,6 @@ local PlayerDropdown = Teleport:Dropdown({
     end
 })
 
--- 🎯 BUTTON UNTUK TELEPORT KE PLAYER
 local TeleportButton = Teleport:Button({
     Title = "Teleport to Player",
     Callback = function()
@@ -1184,7 +1225,6 @@ local TeleportButton = Teleport:Button({
     end
 })
 
--- 🎯 AUTO REFRESH DENGAN ERROR HANDLING
 task.spawn(function()
     while true do
         task.wait(5)
@@ -1202,7 +1242,6 @@ local Section = Teleport:Section({
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
--- 🎯 PAKAI CFrame UNTUK SIMPAN ROTATION JUGA
 local teleportLocations = {
     ["Fisherman Island"] = CFrame.new(77, 9, 2706),
     ["Kohana Volcano"] = CFrame.new(-628.758911, 35.710186, 104.373764, 0.482912123, 1.81591773e-08, 0.875668824, 3.01732896e-08, 1, -3.73774007e-08, -0.875668824, 4.44718076e-08, 0.482912123),
@@ -1248,7 +1287,6 @@ local TeleportButton = Teleport:Button({
                 local targetCFrame = teleportLocations[selectedLocation]
                 
                 if rootPart and targetCFrame then
-                    -- 🎯 TELEPORT DENGAN ROTASI
                     rootPart.CFrame = targetCFrame
                 end
             end
@@ -1256,7 +1294,7 @@ local TeleportButton = Teleport:Button({
     end
 })
 local Section = Teleport:Section({ 
-    Title = "Teleport To Admin Event",
+    Title = "Teleport To Game Event",
 })
 
 local teleportToggle
@@ -1266,7 +1304,6 @@ local currentLocation = "Megalodon Hunt"
 local bodyVelocity = nil
 local lastPosition = nil
 
--- Function untuk cari part dalam model (PAKAI MAPPING TANPA CHILD NUMBER)
 local function findLocationPart(locationName)
     local menuRings = workspace:FindFirstChild("!!! MENU RINGS")
     if not menuRings then return nil end
@@ -1281,7 +1318,6 @@ local function findLocationPart(locationName)
         end
     
     elseif locationName == "Ghost Shark Hunt" then
-        -- Cari folder yang ada "Ghost Shark Hunt"
         for _, child in pairs(menuRings:GetChildren()) do
             local ghostShark = child:FindFirstChild("Ghost Shark Hunt")
             if ghostShark and ghostShark:IsA("Model") then
@@ -1290,7 +1326,6 @@ local function findLocationPart(locationName)
         end
     
     elseif locationName == "Shark Hunt" then
-        -- Cari folder yang ada "Shark Hunt"  
         for _, child in pairs(menuRings:GetChildren()) do
             local shark = child:FindFirstChild("Shark Hunt")
             if shark and shark:IsA("Model") then
@@ -1299,7 +1334,6 @@ local function findLocationPart(locationName)
         end
     
     elseif locationName == "Worm Fish" then
-        -- Cari child yang ada Model dan di dalamnya ada bagian ke-3
         for _, child in pairs(menuRings:GetChildren()) do
             local model = child:FindFirstChild("Model")
             if model and model:IsA("Model") then
@@ -1317,7 +1351,6 @@ local function findLocationPart(locationName)
     return nil
 end
 
--- Function untuk freeze position
 local function freezePosition(position)
     local character = game.Players.LocalPlayer.Character
     if not character then return end
@@ -1325,24 +1358,20 @@ local function freezePosition(position)
     local rootPart = character:FindFirstChild("HumanoidRootPart")
     if not rootPart then return end
     
-    -- Hapus BodyVelocity lama jika ada
     if bodyVelocity then
         bodyVelocity:Destroy()
         bodyVelocity = nil
     end
     
-    -- Buat BodyVelocity baru untuk freeze position
     bodyVelocity = Instance.new("BodyVelocity")
     bodyVelocity.Velocity = Vector3.new(0, 0, 0)
     bodyVelocity.MaxForce = Vector3.new(40000, 40000, 40000)
     bodyVelocity.P = 10000
     bodyVelocity.Parent = rootPart
     
-    -- Teleport ke posisi
     rootPart.CFrame = CFrame.new(position)
 end
 
--- Function untuk unfreeze position
 local function unfreezePosition()
     if bodyVelocity then
         bodyVelocity:Destroy()
@@ -1350,7 +1379,6 @@ local function unfreezePosition()
     end
 end
 
--- Function untuk simpan posisi terakhir
 local function saveCurrentPosition()
     local character = game.Players.LocalPlayer.Character
     if not character then return end
@@ -1365,47 +1393,30 @@ local function teleportToLocation(locationPart)
     if not locationPart then 
         return false
     end
-    
-    -- Simpan posisi saat ini sebelum teleport
     saveCurrentPosition()
-    
     local character = game.Players.LocalPlayer.Character
     if not character then return false end
-    
     local rootPart = character:FindFirstChild("HumanoidRootPart")
     if not rootPart then return false end
-    
-    -- Generate random position sekitar location part
     local randomX = locationPart.Position.X + math.random(-10, 10)
     local randomZ = locationPart.Position.Z + math.random(-10, 10)
     local yOffset = locationPart.Position.Y + 50
-    
     local targetPosition = Vector3.new(randomX, yOffset, randomZ)
-    
-    -- Freeze di posisi target
     freezePosition(targetPosition)
     
     return true
 end
 
--- Function untuk balik ke posisi terakhir
 local function returnToLastPosition()
     if not lastPosition then return end
-    
-    -- Unfreeze dulu
     unfreezePosition()
-    
     local character = game.Players.LocalPlayer.Character
     if not character then return end
-    
     local rootPart = character:FindFirstChild("HumanoidRootPart")
     if not rootPart then return end
-    
-    -- Teleport balik ke posisi terakhir
     rootPart.CFrame = CFrame.new(lastPosition)
 end
 
--- Dropdown untuk pilih lokasi
 locationDropdown = Teleport:Dropdown({
     Title = "Hunt Location",
     Values = {"Megalodon Hunt", "Ghost Shark Hunt", "Shark Hunt", "Worm Fish"},
@@ -1415,14 +1426,12 @@ locationDropdown = Teleport:Dropdown({
     end
 })
 
--- Toggle untuk teleport
 teleportToggle = Teleport:Toggle({
-    Title = "Teleport To Admin Event",
+    Title = "Teleport To Game Event",
     Type = "Toggle",
     Default = false,
     Callback = function(state)
         if state then
-            -- Teleport ke lokasi yang dipilih
             local selectedLocation = currentLocation
             local locationPart = findLocationPart(selectedLocation)
             
@@ -1430,7 +1439,6 @@ teleportToggle = Teleport:Toggle({
                 teleportToLocation(locationPart)
             end
         else
-            -- Toggle dimatikan, balik ke posisi terakhir
             returnToLastPosition()
         end
     end
@@ -1441,7 +1449,6 @@ local Section = Teleport:Section({
     Title = "Teleport To NPC Locations",
 })
 
--- 🎯 TELEPORT TO NPC
 local npcLocations = {
     ["Alex"] = CFrame.new(49, 17, 2880),
     ["Alien Merchant"] = CFrame.new(-134, 2, 2762),
@@ -1491,12 +1498,10 @@ local Button = Quest:Button({
     Title = "Check Quest DeepSea",
     Icon = "info", 
     Callback = function()
-        -- 🔍 GET QUEST DATA
         local Replion = require(ReplicatedStorage.Packages.Replion)
         local QuestList = require(ReplicatedStorage.Shared.Quests.QuestList)
         local questData = Replion.Client:WaitReplion("Data")
         
-        -- 🎯 CEK DEEP SEA QUEST
         local deepSeaData = questData:Get({"DeepSea", "Available", "Forever"})
         
         if not deepSeaData or not deepSeaData.Quests then
@@ -1510,7 +1515,6 @@ local Button = Quest:Button({
             return
         end
         
-        -- 📊 GET QUEST NAMES AND CALCULATE REAL PROGRESS
         local deepSeaQuestInfo = QuestList.DeepSea
         local progressText = ""
         
@@ -1533,7 +1537,6 @@ local Button = Quest:Button({
             progressText = "Quest info not found in QuestList"
         end
         
-        -- 🔔 TAMPILKAN NOTIFICATION
         if WindUI and WindUI.Notify then
             WindUI:Notify({
                 Title = "🌊 Deep Sea Quest Progress",
@@ -1603,14 +1606,12 @@ local function isPlayerFarFromTarget(targetCFrame, maxDistance)
 end
 
 local function startDeepSeaQuest()
-    -- Define quest locations pakai CFrame
     local quest234Location = CFrame.new(-3737, -136, -881)
     local quest1Location = CFrame.new(-3650.4873, -269.269318, -1652.68323, -0.147814155, -2.75628675e-08, -0.989015162, -1.74189818e-08, 1, -2.52656349e-08, 0.989015162, 1.34930183e-08, -0.147814155)
     
     local currentTargetLocation = nil
     
     while runningDeepSea do
-        -- 🔍 CEK PROGRESS
         local success, progress = pcall(getDeepSeaProgress)
         
         if not success or not progress then
@@ -1618,7 +1619,6 @@ local function startDeepSeaQuest()
             continue
         end
         
-        -- 🎯 CHECK APAKAH SEMUA QUEST SUDAH COMPLETE
         local allCompleted = true
         for i = 1, 4 do
             if progress[i] and not progress[i].completed then
@@ -1633,7 +1633,6 @@ local function startDeepSeaQuest()
             break
         end
         
-        -- 🎯 TENTUKAN LOKASI TARGET
         local quest234Completed = true
         for i = 2, 4 do
             if progress[i] and not progress[i].completed then
@@ -1648,12 +1647,10 @@ local function startDeepSeaQuest()
             currentTargetLocation = quest1Location
         end
         
-        -- 🚀 TELEPORT JIKA JAUH DARI TARGET
         if currentTargetLocation and isPlayerFarFromTarget(currentTargetLocation, 10) then
             teleportToLocation(currentTargetLocation)
         end
         
-        -- ⏰ TUNGGU 1 DETIK SEBELUM CEK LAGI
         task.wait(1)
     end
 end
@@ -1668,7 +1665,6 @@ local DeepSeaToggle = Quest:Toggle({
     Callback = function(state)
         runningDeepSea = state
         if state then
-            -- Otomatis nyalain Auto Fishing kalo Deep Sea nyala
             if not autoFishingRunning then
                 autoFishingToggle:Set(true)
             end
@@ -1735,18 +1731,14 @@ local section = Quest:Section({
 })
 ----------------- webhook -------------
 
-
--- Webhook Configuration
 local webhookUrl = "YOUR_WEBHOOK_URL_HERE"
 local monitorEnabled = false
 local selectedTiers = {"Epic", "Legendary", "Mythic", "SECRET"}
 
--- Variables untuk menyimpan data
 local fishNameMapping = {}
 local fishTierMapping = {}
 local fishPriceMapping = {}
 
--- Helper functions
 local function getTierName(tierNumber)
     local tierMap = {
         [1] = "Common",
@@ -1768,7 +1760,7 @@ local function getTierColor(tierName)
         ["Epic"] = 0x9B59B6,
         ["Legendary"] = 0xF1C40F,
         ["Mythic"] = 0xE91E63,
-        ["SECRET"] = 0xFFFFFF
+        ["SECRET"] = 0xFF00FF 
     }
     return colors[tierName] or 0x7289DA
 end
@@ -1779,9 +1771,9 @@ local function getTierEmoji(tierName)
         ["Uncommon"] = "🟢", 
         ["Rare"] = "🔵",
         ["Epic"] = "🟣",
-        ["Legendary"] = "🟠",
+        ["Legendary"] = "🟡",
         ["Mythic"] = "🔴",
-        ["SECRET"] = "💎"
+        ["SECRET"] = "💠" 
     }
     return emojis[tierName] or "🎣"
 end
@@ -1790,20 +1782,16 @@ local function formatPrice(price)
     return tostring(price):reverse():gsub("%d%d%d", "%1,"):reverse():gsub("^,", "")
 end
 
-local function getSizeCategory(weight)
-    if not weight or weight == "N/A" then return "Unknown" end
-    local numWeight = tonumber(weight) or 0
+local function getMutationStatus(mutationData)
+    if not mutationData then return "Normal" end
     
-    if numWeight >= 200 then return "🐋 Giant" 
-    elseif numWeight >= 100 then return "🦈 Large"
-    elseif numWeight >= 50 then return "🐠 Medium"
-    elseif numWeight >= 20 then return "🐡 Small"
-    else return "🐟 Tiny" end
+    if mutationData.Shiny then return "✨ Shiny"
+    elseif mutationData.Golden then return "🌟 Golden" 
+    elseif mutationData.Rainbow then return "🌈 Rainbow"
+    elseif mutationData.Crystal then return "💎 Crystal"
+    elseif mutationData.Albino then return "⚪ Albino"
+    else return "Normal" end
 end
-
--- =============================================
--- SCAN ITEMS FUNCTION
--- =============================================
 
 local function scanAllItems()
     local ItemsFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Items")
@@ -1841,16 +1829,102 @@ local function scanAllItems()
     return fishCount
 end
 
--- =============================================
--- FISH CATCH MONITOR - DISCORD STYLE
--- =============================================
-
 local function getFishNameFromId(fishId)
     return fishNameMapping[fishId] or "Unknown Fish (ID: " .. tostring(fishId) .. ")"
 end
 
 local function getFishPriceFromId(fishId)
     return fishPriceMapping[fishId] or 0
+end
+
+local function createSecretEmbed(fishName, playerName, weight, mutationStatus, fishPrice)
+    return {
+        title = "🚨 **ULTRA RARE FISH CAUGHT!** 🚨",
+        color = 0xFF00FF,
+        description = "***A legendary fisherman has achieved the impossible!***",
+        thumbnail = {
+            url = "https://cdn.discordapp.com/attachments/1307006912348291122/1426396355407904839/fish_icon.png"
+        },
+        fields = {
+            {
+                name = "**Fisherman**",
+                value = playerName,
+                inline = true
+            },
+            {
+                name = "**Rarity**", 
+                value = "💠 **SECRET**",
+                inline = true
+            },
+            {
+                name = "**Mutation**",
+                value = mutationStatus,
+                inline = true
+            },
+            {
+                name = "**Weight**",
+                value = weight .. " kg",
+                inline = true
+            },
+            {
+                name = "**Fish Name**",
+                value = "**" .. fishName .. "**",
+                inline = false
+            },
+            {
+                name = "**Value**",
+                value = "$" .. formatPrice(fishPrice),
+                inline = true
+            }
+        },
+        footer = {
+            text = "🌟 SECRET!! CATCH • " .. os.date("%m/%d/%Y %I:%M %p")
+        },
+        timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+    }
+end
+
+local function createNormalEmbed(fishName, playerName, tierName, tierColor, tierEmoji, weight, mutationStatus, fishPrice)
+    return {
+        title = "🎣 New Fish Caught!",
+        color = tierColor,
+        fields = {
+            {
+                name = "**Fisherman**",
+                value = playerName,
+                inline = true
+            },
+            {
+                name = "**Rarity**", 
+                value = tierEmoji .. " " .. tierName,
+                inline = true
+            },
+            {
+                name = "**Mutation**",
+                value = mutationStatus,
+                inline = true
+            },
+            {
+                name = "**Weight**",
+                value = weight .. " kg",
+                inline = true
+            },
+            {
+                name = "**Fish Name**",
+                value = "**" .. fishName .. "**",
+                inline = false
+            },
+            {
+                name = "**Value**",
+                value = "$" .. formatPrice(fishPrice),
+                inline = true
+            }
+        },
+        footer = {
+            text = "Fyy Community • " .. os.date("%m/%d/%Y %I:%M %p")
+        },
+        timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+    }
 end
 
 local function sendFishWebhook(fishId, weightData, itemData, isNew)
@@ -1866,57 +1940,26 @@ local function sendFishWebhook(fishId, weightData, itemData, isNew)
     local tierColor = getTierColor(tierName)
     local tierEmoji = getTierEmoji(tierName)
     local fishPrice = getFishPriceFromId(fishId)
-    local sizeCategory = getSizeCategory(weight)
+    
+    local mutationData = weightData
+    local mutationStatus = getMutationStatus(mutationData)
     
     local player = game.Players.LocalPlayer
     local playerName = player.DisplayName
     
     if webhookUrl and webhookUrl ~= "YOUR_WEBHOOK_URL_HERE" then
+        local embed
+        
+        if tierName == "SECRET" then
+            embed = createSecretEmbed(fishName, playerName, weight, mutationStatus, fishPrice)
+        else
+            embed = createNormalEmbed(fishName, playerName, tierName, tierColor, tierEmoji, weight, mutationStatus, fishPrice)
+        end
+        
         local payload = {
-            username = "Fishing Notifier",
+            username = "Fyy Community",
             avatar_url = "https://cdn.discordapp.com/attachments/1307006912348291122/1426396355407904839/fish_icon.png",
-            embeds = {
-                {
-                    title = "🎣 New Fish Caught!",
-                    color = tierColor,
-                    fields = {
-                        {
-                            name = "**Fisherman**",
-                            value = playerName,
-                            inline = true
-                        },
-                        {
-                            name = "**Rarity**", 
-                            value = tierEmoji .. " " .. tierName,
-                            inline = true
-                        },
-                        {
-                            name = "**Weight**",
-                            value = weight .. " kg",
-                            inline = true
-                        },
-                        {
-                            name = "**Fish Name**",
-                            value = "**" .. fishName .. "**",
-                            inline = false
-                        },
-                        {
-                            name = "**Size**",
-                            value = sizeCategory,
-                            inline = true
-                        },
-                        {
-                            name = "**Value**",
-                            value = "$" .. formatPrice(fishPrice),
-                            inline = true
-                        }
-                    },
-                    footer = {
-                        text = "Fishing Notifier • " .. os.date("%m/%d/%Y %I:%M %p")
-                    },
-                    timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
-                }
-            }
+            embeds = { embed }
         }
         
         pcall(function()
@@ -1932,10 +1975,6 @@ local function sendFishWebhook(fishId, weightData, itemData, isNew)
         end)
     end
 end
-
--- =============================================
--- START MONITORING
--- =============================================
 
 local function startFishMonitoring()
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -1963,10 +2002,6 @@ local function startFishMonitoring()
     end
 end
 
--- =============================================
--- TEST WEBHOOK CONNECTION FUNCTION
--- =============================================
-
 local function testWebhookConnection()
     if webhookUrl == "YOUR_WEBHOOK_URL_HERE" then return end
     
@@ -1990,7 +2025,7 @@ local function testWebhookConnection()
                     },
                     {
                         name = "**Version**", 
-                        value = "Beta Webhook",
+                        value = "Beta Version 1.0.0.1",
                         inline = true
                     }
                 },
@@ -2014,10 +2049,6 @@ local function testWebhookConnection()
         })
     end)
 end
-
--- =============================================
--- DISCORD UI CONTROLS
--- =============================================
 
 local WebhookInput = Discord:Input({
     Title = "Webhook URL",
@@ -2059,7 +2090,6 @@ task.spawn(function()
     scanAllItems()
 end)
 
----------------------------------
 local section = Setting:Section({ 
     Title = "Game Optimization",
 })
@@ -2139,7 +2169,6 @@ local AntiLagButton = Setting:Button({
     end
 })
 
-
 local localPlayer = game.Players.LocalPlayer
 local playerName = localPlayer.Name  
 local originalAnimator = nil
@@ -2152,13 +2181,12 @@ local AnimatorToggle = Setting:Toggle({
         local character = workspace.Characters:FindFirstChild(playerName)
         
         if state then
-            -- TOGGLE NYALA - HAPUS ANIMATOR
             if character then
                 local humanoid = character:FindFirstChild("Humanoid")
                 if humanoid then
                     local animator = humanoid:FindFirstChildOfClass("Animator")
                     if animator then
-                        originalAnimator = animator:Clone()  -- Backup animator
+                        originalAnimator = animator:Clone()  
                         animator:Destroy()
                         animatorRemoved = true
                     else
@@ -2168,7 +2196,6 @@ local AnimatorToggle = Setting:Toggle({
             else
             end
         else
-            -- TOGGLE MATI - BALIKIN ANIMATOR
             if character and animatorRemoved then
                 local humanoid = character:FindFirstChild("Humanoid")
                 if humanoid and originalAnimator then
@@ -2184,53 +2211,22 @@ local AnimatorToggle = Setting:Toggle({
     end
 })
 
-local cosmeticFolderBackup = nil
-local folderRemoved = false
 
-local ThrowBaitToggle = Setting:Toggle({
-    Title = "Remove Animasi Throw Bait",
-    Default = false,
-    Callback = function(state)
-        local cosmeticFolder = workspace:FindFirstChild("CosmeticFolder")
-        
-        if state then
-            -- TOGGLE NYALA - HAPUS SELURUH FOLDER
-            if cosmeticFolder then
-                cosmeticFolderBackup = cosmeticFolder:Clone()  -- Backup folder
-                cosmeticFolder:Destroy()
-                folderRemoved = true
-            else
-            end
-        else
-            -- TOGGLE MATI - BALIKIN FOLDER
-            if folderRemoved and cosmeticFolderBackup then
-                local newFolder = cosmeticFolderBackup:Clone()
-                newFolder.Parent = workspace
-                folderRemoved = false
-            else
-
-            end
-        end
-    end
-})
 
 local function Main()
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local Players = game:GetService("Players")
     
-    -- Load dependencies
     local Client = require(ReplicatedStorage.Packages.Replion).Client
     local player = Players.LocalPlayer
     local dataStore = Client:WaitReplion("Data")
 
-    -- Remote Events
     local REEquipItem = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/EquipItem"]
     local REEquipToolFromHotbar = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/EquipToolFromHotbar"]
     local REActivateEnchantingAltar = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/ActivateEnchantingAltar"]
     local RERollEnchant = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RE/RollEnchant"]
     local UpdateRemote = ReplicatedStorage.Packages._Index["ytrev_replion@2.0.0-rc.3"].replion.Remotes.Update
 
-    -- 🎯 ENCHANT MAPPING
     local enchantMapping = {
         ["Big Hunter I"] = 3,
         ["Cursed I"] = 12,
@@ -2249,14 +2245,12 @@ local function Main()
         ["XPerienced I"] = 10
     }
 
-    -- State variables
     local autoRerollEnabled = false
     local targetEnchantId = 10
     local rollCount = 0
     local waitingForUpdate = false
     local currentCycleRunning = false
 
-    -- 🎯 SCAN ENCHANT STONES
     local function scanEnchantStones()
         local inventoryData = dataStore:Get("Inventory")
         local enchantStones = {}
@@ -2280,7 +2274,6 @@ local function Main()
         return enchantStones
     end
 
-    -- 🎯 TELEPORT KE LOKASI ENCHANT
     local function teleportToEnchant()
         local character = player.Character
         if character and character:FindFirstChild("HumanoidRootPart") then
@@ -2290,7 +2283,6 @@ local function Main()
         return false
     end
 
-    -- 🎯 SIMPLE EQUIP ENCHANT STONE
     local function equipEnchantStoneSimple()
         local allEnchantStones = scanEnchantStones()
         
@@ -2298,7 +2290,6 @@ local function Main()
             local randomIndex = math.random(1, #allEnchantStones)
             local selectedStone = allEnchantStones[randomIndex]
             
-            -- Fire beberapa kali saja
             for i = 1, 3 do
                 REEquipItem:FireServer(selectedStone.uuid, "EnchantStones")
                 task.wait(1)
@@ -2308,9 +2299,7 @@ local function Main()
         return false
     end
 
-    -- 🎯 EQUIP TOOL 3x DENGAN DELAY
     local function equipToolThreeTimes()
-        -- Fire remote event 3x dengan delay
         for i = 1, 3 do
             REEquipToolFromHotbar:FireServer(6)
             task.wait(1)
@@ -2318,9 +2307,7 @@ local function Main()
         return true
     end
 
-    -- 🎯 ACTIVATE ALTAR 3x DENGAN DELAY
     local function activateAltarThreeTimes()
-        -- Fire remote event 3x dengan delay
         for i = 1, 3 do
             REActivateEnchantingAltar:FireServer()
             task.wait(0.5)
@@ -2328,19 +2315,15 @@ local function Main()
         return true
     end
 
-    -- 🎯 SIMPLE TIMEOUT SYSTEM
     local function startTimeoutChecker()
         coroutine.wrap(function()
-            -- Tunggu maksimal 3 detik (30 x 0.1 detik)
             for i = 1, 30 do
                 if not waitingForUpdate or not autoRerollEnabled then
                     return
                 end
                 task.wait(0.1)
             end
-            
-            -- Jika masih waiting for update setelah 3 detik
-            if waitingForUpdate and autoRerollEnabled then
+                if waitingForUpdate and autoRerollEnabled then
                 waitingForUpdate = false
                 currentCycleRunning = false
                 
@@ -2348,7 +2331,6 @@ local function Main()
                 if autoRerollEnabled then
                     currentCycleRunning = true
                     
-                    -- Langsung jalankan step enchant stone saja
                     coroutine.wrap(function()
                         if equipEnchantStoneSimple() then
                             task.wait(2)
@@ -2366,47 +2348,35 @@ local function Main()
         end)()
     end
 
-    -- 🎯 RESET CACHE & START NEW ENCHANT CYCLE
     local function startNewEnchantCycle()
         if not autoRerollEnabled or currentCycleRunning then return end
         
         currentCycleRunning = true
         
-        -- Step 1: Teleport
         if not teleportToEnchant() then 
             currentCycleRunning = false
             return 
         end
         task.wait(2)
 
-        -- Step 2: Equip enchant stone simple
         if not equipEnchantStoneSimple() then 
             currentCycleRunning = false
             return 
         end
         task.wait(2)
-
-        -- Step 3: Equip tool 3x dengan delay
         equipToolThreeTimes()
         task.wait(1)
-
-        -- Step 4: Activate altar 3x dengan delay
         activateAltarThreeTimes()
         task.wait(0.1)
-        
-        -- Step 5: Start roll dan timeout checker
         waitingForUpdate = true
         RERollEnchant:FireServer()
         
-        -- Start timeout checker
         startTimeoutChecker()
     end
 
-    -- 🎯 CREATE UI FUNCTION
     local function createUI()
         if not Discord then return end
         
-        -- Buat Dropdown
         Enchant:Dropdown({
             Title = "Target Enchant",
             Values = {
@@ -2420,7 +2390,6 @@ local function Main()
             end
         })
 
-        -- Buat Toggle
         Enchant:Toggle({
             Title = "Auto Enchant",
             Value = false,
@@ -2442,12 +2411,10 @@ local function Main()
         })
     end
 
-    -- 🎯 UPDATE LISTENER
     UpdateRemote.OnClientEvent:Connect(function(dataString, path, data)
         if not autoRerollEnabled then return end
         if not waitingForUpdate then return end
         
-        -- Reset waiting state immediately
         waitingForUpdate = false
         currentCycleRunning = false
         
@@ -2459,10 +2426,8 @@ local function Main()
                     rollCount = rollCount + 1
                     
                     if enchantId == targetEnchantId then
-                        -- SUCCESS - Stop auto enchant
                         autoRerollEnabled = false
                     else
-                        -- FAILED - Retry setelah delay
                         task.wait(8)
                         
                         if autoRerollEnabled then
@@ -2476,18 +2441,12 @@ local function Main()
         end
     end)
 
-    -- Setup UI
     task.wait(2)
     createUI()
 end
 
--- 🎯 EXECUTE
 pcall(Main)
 
-
-----------------------------
-
--- Simple Toggle Small Notification
 if Discord then
     local Players = game:GetService("Players")
     local player = Players.LocalPlayer
@@ -2495,19 +2454,17 @@ if Discord then
     
     Setting:Toggle({
         Title = "Remove Notification", 
-        Value = false, -- UBAH JADI false biar defaultnya notification tetap ada
+        Value = false, 
         Callback = function(state)
             local playerGui = player:WaitForChild("PlayerGui")
             local smallNotification = playerGui:FindFirstChild("Small Notification")
             
             if state then
-                -- Menghapus notification (ketika toggle ON)
                 if smallNotification then
                     originalSmallNotification = smallNotification:Clone()
                     smallNotification:Destroy()
                 end
             else
-                -- Mengembalikan notification (ketika toggle OFF)
                 if originalSmallNotification then
                     smallNotification = originalSmallNotification:Clone()
                     smallNotification.Parent = playerGui
@@ -2522,25 +2479,19 @@ local section = Setting:Section({
     Title = "Ultinity",
 })
 
-
--- Toggle button untuk Fishing Radar Equip/Unequip
 local radarEquipped = false
 local radarButton = Setting:Button({
     Title = "Enable Fishing Radar",
     Callback = function()
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
         local RFUpdateFishingRadar = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net["RF/UpdateFishingRadar"]
-        
-        -- Toggle state
         radarEquipped = not radarEquipped
-        
-        -- Invoke dengan state yang sesuai
         pcall(function()
             if radarEquipped then
-                RFUpdateFishingRadar:InvokeServer(true)  -- EQUIP
+                RFUpdateFishingRadar:InvokeServer(true) 
                 radarButton:SetTitle("Unequip Fishing Radar")
             else
-                RFUpdateFishingRadar:InvokeServer(false) -- UNEQUIP
+                RFUpdateFishingRadar:InvokeServer(false) 
                 radarButton:SetTitle("Equip Fishing Radar")
             end
         end)
@@ -2553,18 +2504,14 @@ local oxygenButton = Setting:Button({
     Callback = function()
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
         local net = ReplicatedStorage.Packages._Index["sleitnick_net@0.2.0"].net
-        
-        -- Toggle state
         oxygenEquipped = not oxygenEquipped
-        
-        -- Invoke dengan state yang sesuai
         pcall(function()
             if oxygenEquipped then
                 local args = {105}
-                net["RF/EquipOxygenTank"]:InvokeServer(unpack(args))  -- EQUIP
+                net["RF/EquipOxygenTank"]:InvokeServer(unpack(args))  
                 oxygenButton:SetTitle("Unequip Oxygen Tank")
             else
-                net["RF/UnequipOxygenTank"]:InvokeServer()  -- UNEQUIP
+                net["RF/UnequipOxygenTank"]:InvokeServer()  
                 oxygenButton:SetTitle("Equip Oxygen Tank")
             end
         end)
