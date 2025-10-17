@@ -236,66 +236,51 @@ local NoClipToggle = Player:Toggle({
 
 local walkOnWater = false
 local waterPlatform = nil
+local player = game.Players.LocalPlayer
 
 local waterToggle = Player:Toggle({
     Title = "Walk On Water", 
     Default = false,
     Callback = function(state)
         walkOnWater = state
-        local player = game.Players.LocalPlayer
         local character = player.Character
         
-        if state then
-            if character then
-                local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-                if humanoidRootPart then
-                    if waterPlatform then
-                        waterPlatform:Destroy()
-                    end
-                    
-                    waterPlatform = Instance.new("Part")
-                    waterPlatform.Name = "WaterPlatform"
-                    waterPlatform.Anchored = true
-                    waterPlatform.CanCollide = true
-                    waterPlatform.Size = Vector3.new(20, 1, 20)
-                    waterPlatform.Transparency = 1
-                    waterPlatform.Material = Enum.Material.Plastic
-                    
-                    local currentPos = humanoidRootPart.Position
-                    waterPlatform.Position = Vector3.new(currentPos.X, 0, currentPos.Z)
-                    waterPlatform.Parent = workspace
-                    
-                end
+        if state and character then
+            local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+            if humanoidRootPart then
+                if waterPlatform then waterPlatform:Destroy() end
+                
+                waterPlatform = Instance.new("Part")
+                waterPlatform.Name = "WaterPlatform"
+                waterPlatform.Anchored = true
+                waterPlatform.CanCollide = true
+                waterPlatform.Size = Vector3.new(20, 1, 20)
+                waterPlatform.Transparency = 1
+                waterPlatform.Material = Enum.Material.Plastic
+                
+                local currentPos = humanoidRootPart.Position
+                waterPlatform.Position = Vector3.new(currentPos.X, 0, currentPos.Z)
+                waterPlatform.Parent = workspace
             end
-        else
-            if waterPlatform then
-                waterPlatform:Destroy()
-                waterPlatform = nil
-            end
+        elseif waterPlatform then
+            waterPlatform:Destroy()
+            waterPlatform = nil
         end
     end
 })
 
-game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
+player.CharacterAdded:Connect(function(character)
     task.wait(1)
-    
-    if walkOnWater and waterPlatform then
-        local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-        if humanoidRootPart then
-            local currentPos = humanoidRootPart.Position
-            waterPlatform.Position = Vector3.new(currentPos.X, 0, currentPos.Z)
-        end
+    if walkOnWater and waterPlatform and character:FindFirstChild("HumanoidRootPart") then
+        local currentPos = character.HumanoidRootPart.Position
+        waterPlatform.Position = Vector3.new(currentPos.X, 0, currentPos.Z)
     end
 end)
 
-local RunService = game:GetService("RunService")
-RunService.Heartbeat:Connect(function()
-    if walkOnWater and waterPlatform then
-        local character = game.Players.LocalPlayer.Character
-        if character and character:FindFirstChild("HumanoidRootPart") then
-            local rootPos = character.HumanoidRootPart.Position
-            waterPlatform.Position = Vector3.new(rootPos.X, 0, rootPos.Z)
-        end
+game:GetService("RunService").Heartbeat:Connect(function()
+    if walkOnWater and waterPlatform and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        local rootPos = player.Character.HumanoidRootPart.Position
+        waterPlatform.Position = Vector3.new(rootPos.X, 0, rootPos.Z)
     end
 end)
 
@@ -1453,60 +1438,29 @@ local TeleportNPCButton = Teleport:Button({
 
 local Button = Quest:Button({
     Title = "Check Quest DeepSea",
-    Icon = "info", 
     Callback = function()
-        local Replion = require(ReplicatedStorage.Packages.Replion)
-        local QuestList = require(ReplicatedStorage.Shared.Quests.QuestList)
-        local questData = Replion.Client:WaitReplion("Data")
-        
+        local questData = require(ReplicatedStorage.Packages.Replion).Client:WaitReplion("Data")
         local deepSeaData = questData:Get({"DeepSea", "Available", "Forever"})
         
-        if not deepSeaData or not deepSeaData.Quests then
-            if WindUI and WindUI.Notify then
-                WindUI:Notify({
-                    Title = "🎣 Deep Sea Quest",
-                    Content = "Quest not found or not activated yet!",
-                    Duration = 5,
-                })
-            end
-            return
-        end
+        if not deepSeaData then return end
         
-        local deepSeaQuestInfo = QuestList.DeepSea
         local progressText = ""
+        local quests = require(ReplicatedStorage.Shared.Quests.QuestList).DeepSea.Forever
         
-        if deepSeaQuestInfo and deepSeaQuestInfo.Forever then
-            for i, questInfo in ipairs(deepSeaQuestInfo.Forever) do
-                local questProgress = deepSeaData.Quests[i]
-                local targetValue = questInfo.Arguments.value
-                local currentProgress = 0
-                local progressPercent = 0
-                
-                if questProgress then
-                    currentProgress = questProgress.Progress
-                    progressPercent = math.floor((currentProgress / targetValue) * 100)
-                end
-                
-                progressText = progressText .. string.format("%d. %s : %d/%d (%d%%)\n", 
-                    i, questInfo.DisplayName, currentProgress, targetValue, progressPercent)
-            end
-        else
-            progressText = "Quest info not found in QuestList"
+        for i, questInfo in ipairs(quests) do
+            local questProgress = deepSeaData.Quests[i]
+            local target = questInfo.Arguments.value
+            local current = questProgress and questProgress.Progress or 0
+            local percent = math.floor((current / target) * 100)
+            
+            progressText = progressText .. i .. ". " .. questInfo.DisplayName .. " : " .. current .. "/" .. target .. " (" .. percent .. "%)\n"
         end
         
-        if WindUI and WindUI.Notify then
-            WindUI:Notify({
-                Title = "🌊 Deep Sea Quest Progress",
-                Content = progressText,
-                Duration = 10,
-            })
-        elseif Auto and Auto.Notify then
-            Auto:Notify({
-                Title = "🌊 Deep Sea Quest Progress", 
-                Content = progressText,
-                Duration = 10,
-            })
-        end
+        WindUI:Notify({
+            Title = "Deep Sea Quest",
+            Content = progressText,
+            Duration = 10,
+        })
     end
 })
 
@@ -1638,48 +1592,30 @@ Divider = Quest:Divider()
 Space = Quest:Space()
 
 local Button = Quest:Button({
-    Title = "Check Quest Element Jungle",
-    Icon = "info",
+    Title = "Check Element Jungle",
     Callback = function()
-        local Replion = require(ReplicatedStorage.Packages.Replion)
-        local QuestList = require(ReplicatedStorage.Shared.Quests.QuestList)
-        local questData = Replion.Client:WaitReplion("Data")
+        local questData = require(ReplicatedStorage.Packages.Replion).Client:WaitReplion("Data")
+        local jungleData = questData:Get({"ElementJungle", "Available", "Forever"})
         
-        local elementJungleData = questData:Get({"ElementJungle", "Available", "Forever"})
-        
-        if not elementJungleData or not elementJungleData.Quests then
-            if WindUI and WindUI.Notify then
-                WindUI:Notify({
-                    Title = "Element Jungle Quest",
-                    Content = "Quest not active yet!",
-                    Duration = 5,
-                })
-            end
-            return
-        end
+        if not jungleData then return end
         
         local progressText = ""
-        local elementJungleQuests = QuestList.ElementJungle.Forever
+        local quests = require(ReplicatedStorage.Shared.Quests.QuestList).ElementJungle.Forever
         
-        for i, questInfo in ipairs(elementJungleQuests) do
-            local questProgress = elementJungleData.Quests[i]
+        for i, questInfo in ipairs(quests) do
+            local questProgress = jungleData.Quests[i]
             local target = questInfo.Arguments.value
             local current = questProgress and questProgress.Progress or 0
             local percent = math.floor((current / target) * 100)
             
-            local status = current >= target and "✅" or "🔄"
-            
-            progressText = progressText .. string.format("%d. %s : %d/%d (%d%%)\n", 
-                i, questInfo.DisplayName, current, target, percent)
+            progressText = progressText .. i .. ". " .. questInfo.DisplayName .. " : " .. current .. "/" .. target .. " (" .. percent .. "%)\n"
         end
         
-        if WindUI and WindUI.Notify then
-            WindUI:Notify({
-                Title = "Element Jungle Quest Progress",
-                Content = progressText,
-                Duration = 10,
-            })
-        end
+        WindUI:Notify({
+            Title = "Element Jungle",
+            Content = progressText,
+            Duration = 10,
+        })
     end
 })
 
@@ -1735,17 +1671,10 @@ local function startElementJungleQuest()
             continue
         end
         
-        print("🔍 Checking Quest Progress...")
-        print("Quest 1:", progress[1] and progress[1].completed and "COMPLETED" or "NOT COMPLETED")
-        print("Quest 2:", progress[2] and progress[2].completed and "COMPLETED" or "NOT COMPLETED") 
-        print("Quest 3:", progress[3] and progress[3].completed and "COMPLETED" or "NOT COMPLETED")
-        
-        -- ✅ CEK QUEST 1: Harus selesai dulu
         if progress[1] and not progress[1].completed then
-            print("❌ Quest 1 belum selesai! Matikan toggle...")
             WindUI:Notify({
                 Title = "Element Jungle Quest",
-                Content = "Selesaikan Quest 1 Deep Sea dulu!",
+                Content = "Selesaikan Quest Deep Sea dulu!",
                 Duration = 5,
             })
             runningElementJungle = false
@@ -1753,46 +1682,24 @@ local function startElementJungleQuest()
             break
         end
         
-        -- ✅ CEK JIKA QUEST 1,2,3 SUDAH SELESAI → AUTO STOP
         if progress[1] and progress[1].completed and 
            progress[2] and progress[2].completed and 
            progress[3] and progress[3].completed then
-            print("✅ Semua quest selesai! Matikan toggle...")
-            WindUI:Notify({
-                Title = "Element Jungle Quest",
-                Content = "Quest 1,2,3 sudah selesai! System auto stop.",
-                Duration = 5,
-            })
             runningElementJungle = false
             ElementJungleToggle:Set(false)
             break
         end
         
-        -- ✅ CEK QUEST 2: Auto selesain (SEPARATE CHECK)
         if progress[2] and not progress[2].completed then
-            print("🎯 Teleport ke Quest 2...")
             teleportToLocation(quest2Location)
-            WindUI:Notify({
-                Title = "Element Jungle Quest",
-                Content = "Auto Quest 2... Progress: " .. progress[2].current .. "/" .. progress[2].target,
-                Duration = 3,
-            })
         end
         
-        -- ✅ CEK QUEST 3: Auto selesain (SEPARATE CHECK)  
         if progress[3] and not progress[3].completed then
-            print("🎯 Teleport ke Quest 3...")
             teleportToLocation(quest3Location)
-            WindUI:Notify({
-                Title = "Element Jungle Quest", 
-                Content = "Auto Quest 3... Progress: " .. progress[3].current .. "/" .. progress[3].target,
-                Duration = 3,
-            })
         end
         
         task.wait(5)
     end
-    print("🔚 Element Jungle Quest loop berhenti")
 end
 
 local ElementJungleToggle = Quest:Toggle({
@@ -1800,18 +1707,14 @@ local ElementJungleToggle = Quest:Toggle({
     Default = false,
     Callback = function(state)
         runningElementJungle = state
-        print("🔄 Toggle Element Jungle:", state)
         if state then
             -- Auto nyalain Auto Fishing
             if not autoFishingRunning then
-                print("🎣 Auto nyalain Auto Fishing...")
                 autoFishingToggle:Set(true)
             end
             task.spawn(function()
                 startElementJungleQuest()
             end)
-        else
-            print("⏹️ Element Jungle dimatikan manual")
         end
     end
 })
@@ -2492,3 +2395,4 @@ if Discord then
         end
     })
 end
+
